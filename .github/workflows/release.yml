@@ -173,40 +173,80 @@ jobs:
             --key-id "$APPLE_NOTARY_KEY_ID" \
             --issuer "$APPLE_NOTARY_ISSUER_ID" \
             --wait
-      - name: Upload to release
+      - name: Upload build archives
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gogs-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}
+          path: |
+            dist/gogs_*.zip
+            dist/gogs_*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: Publish release assets
+    needs: build
+    if: ${{ github.repository == 'gogs/gogs' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      - name: Download build archives
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: gogs-*
+          path: dist
+          merge-multiple: true
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "version=${{ github.event.release.tag_name }}" | sed 's/version=v/version=/' >> "$GITHUB_OUTPUT"
+            echo "release_tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "version=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+            echo "release_tag=latest-commit-build" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+            echo "release_tag=release-archive-testing" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Ensure release exists
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           RELEASE_TAG="${{ steps.version.outputs.release_tag }}"
 
-          if [ "${{ github.event_name }}" != "release" ]; then
-            git tag -f "$RELEASE_TAG"
-            git push origin "$RELEASE_TAG" --force || true
-
-            RELEASE_TITLE="Release archive testing"
-            RELEASE_NOTES="Automated testing release for workflow development."
-            if [ "$RELEASE_TAG" = "latest-commit-build" ]; then
-              RELEASE_TITLE="Latest commit build"
-              RELEASE_NOTES="Automated build from the latest commit on main branch. This release is updated automatically with every push to main."
-            fi
-
-            gh release view "$RELEASE_TAG" || gh release create "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes "$RELEASE_NOTES" --prerelease
+          if [ "${{ github.event_name }}" = "release" ]; then
+            gh release view "$RELEASE_TAG"
+            exit 0
           fi
 
-          PATTERN="_${{ matrix.goos }}_${{ matrix.goarch }}${{ matrix.suffix }}\."
-          gh release view "$RELEASE_TAG" --json assets --jq ".assets[].name" | grep "$PATTERN" | while read -r asset; do
-            gh release delete-asset "$RELEASE_TAG" "$asset" --yes || true
-          done
+          git tag -f "$RELEASE_TAG"
+          git push origin "$RELEASE_TAG" --force || true
 
-          gh release upload "$RELEASE_TAG" dist/gogs_*.zip --clobber
-          if [ "${{ matrix.goos }}" = "linux" ]; then
-            gh release upload "$RELEASE_TAG" dist/gogs_*.tar.gz --clobber
+          RELEASE_TITLE="Release archive testing"
+          RELEASE_NOTES="Automated testing release for workflow development."
+          if [ "$RELEASE_TAG" = "latest-commit-build" ]; then
+            RELEASE_TITLE="Latest commit build"
+            RELEASE_NOTES="Automated build from the latest commit on main branch. This release is updated automatically with every push to main."
           fi
+
+          gh release view "$RELEASE_TAG" || gh release create "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes "$RELEASE_NOTES" --prerelease
+      - name: Generate asset manifest
+        run: scripts/generate-release-manifest.sh dist "$RUNNER_TEMP/release-assets-manifest.json"
+      - name: Sync assets to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scripts/sync-release-assets.sh \
+            --repo "${{ github.repository }}" \
+            --tag "${{ steps.version.outputs.release_tag }}" \
+            --manifest "$RUNNER_TEMP/release-assets-manifest.json" \
+            --assets-dir dist
 
   notify-failure:
     name: Notify on failure
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [build, publish]
     if: ${{ failure() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
       - name: Send email on failure
