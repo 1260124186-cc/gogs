@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -23,11 +24,134 @@ import (
 	"gogs.io/gogs/internal/httplib"
 	"gogs.io/gogs/internal/netx"
 	apiv1types "gogs.io/gogs/internal/route/api/v1/types"
-	"gogs.io/gogs/internal/sync"
 	"gogs.io/gogs/internal/testx"
 )
 
-var HookQueue = sync.NewUniqueQueue(1000)
+// defaultHookDeliverConcurrency caps how many webhooks are delivered at the
+// same time when [conf.Webhook.DeliverConcurrency] is not configured.
+const defaultHookDeliverConcurrency = 10
+
+// hookTaskUpdateMaxRetries is the number of attempts to persist a delivery
+// result. A result that is not persisted would make the task eligible for
+// redelivery, which could arrive at the target out of order.
+const hookTaskUpdateMaxRetries = 3
+
+// hookTaskUpdateRetryInterval is the wait between persistence attempts.
+const hookTaskUpdateRetryInterval = 200 * time.Millisecond
+
+// hookDrainBackoff is how long a drainer waits before retrying after a
+// database error, to avoid spinning on a failing database.
+const hookDrainBackoff = time.Second
+
+// hookDeliveryQueue guarantees that at most one drainer runs per webhook.
+// The drainer keeps processing pending tasks until the webhook has none left,
+// so repeated signals while it is active are coalesced without losing work.
+// Different webhooks acquire a shared concurrency semaphore independently,
+// thus deliveries of one webhook never block another, except when the
+// concurrency cap is reached.
+type hookDeliveryQueue struct {
+	mu      sync.Mutex
+	running map[int64]struct{}
+	sem     chan struct{}
+	// drain processes one batch of pending tasks for the webhook and returns
+	// true when the caller should drain again because more tasks were found.
+	drain func(hookID int64) (keepGoing bool)
+	// hasPending reports whether the webhook still has any pending task. It
+	// must be cheap, the queue calls it while holding its lock.
+	hasPending func(hookID int64) bool
+	wg         sync.WaitGroup
+}
+
+func newHookDeliveryQueue(concurrency int, drain func(int64) bool, hasPending func(int64) bool) *hookDeliveryQueue {
+	if concurrency <= 0 {
+		concurrency = defaultHookDeliverConcurrency
+	}
+	return &hookDeliveryQueue{
+		running:    make(map[int64]struct{}),
+		sem:        make(chan struct{}, concurrency),
+		drain:      drain,
+		hasPending: hasPending,
+	}
+}
+
+// add ensures a drainer is running for the webhook. Signals are coalesced
+// while a drainer is active.
+//
+// Callers must only signal after the task rows are committed to the database,
+// otherwise a drainer may finish its final emptiness check before the rows
+// become visible.
+func (q *hookDeliveryQueue) add(hookID int64) {
+	q.mu.Lock()
+	if _, ok := q.running[hookID]; ok {
+		q.mu.Unlock()
+		return
+	}
+	q.running[hookID] = struct{}{}
+	q.mu.Unlock()
+
+	q.wg.Add(1)
+	go q.runDrainer(hookID)
+}
+
+func (q *hookDeliveryQueue) runDrainer(hookID int64) {
+	defer q.wg.Done()
+
+	q.sem <- struct{}{}
+	defer func() { <-q.sem }()
+
+	for {
+		if !q.drain(hookID) {
+			q.mu.Lock()
+			// Re-check with the lock held so an add() cannot interleave
+			// between the last empty result and clearing the running marker.
+			// Task rows are always committed before add() is called, so a
+			// signal coalesced here guarantees its rows are visible.
+			if !q.hasPending(hookID) {
+				delete(q.running, hookID)
+				q.mu.Unlock()
+				return
+			}
+			q.mu.Unlock()
+		}
+	}
+}
+
+// wait blocks until all drainer goroutines exit. It is intended for tests.
+func (q *hookDeliveryQueue) wait() {
+	q.wg.Wait()
+}
+
+// hookDeliverer is the process-wide webhook delivery queue. It stays nil in
+// short-lived processes (e.g. Git hooks) where tasks are only persisted,
+// those tasks are picked up on the next web process startup.
+var hookDeliverer *hookDeliveryQueue
+
+// QueueHookDelivery schedules pending tasks of the webhook for delivery. It
+// is safe to call repeatedly, signals are coalesced and tasks already
+// delivered are never queued again.
+func QueueHookDelivery(hookID int64) {
+	if hookDeliverer == nil {
+		return
+	}
+	hookDeliverer.add(hookID)
+}
+
+// QueueUndeliveredRepoHookTasks schedules pending tasks of every webhook of
+// the repository (e.g. after a manual delivery trigger).
+func QueueUndeliveredRepoHookTasks(repoID int64) {
+	if hookDeliverer == nil {
+		return
+	}
+
+	hookIDs, err := pendingHookIDs("repo_id = ?", repoID)
+	if err != nil {
+		log.Error("Find undelivered hook tasks [repo_id: %d]: %v", repoID, err)
+		return
+	}
+	for _, hookID := range hookIDs {
+		hookDeliverer.add(hookID)
+	}
+}
 
 type HookContentType int
 
@@ -432,7 +556,7 @@ type HookResponse struct {
 type HookTask struct {
 	ID                          int64
 	RepoID                      int64 `xorm:"INDEX"`
-	HookID                      int64
+	HookID                      int64 `xorm:"INDEX"`
 	UUID                        string
 	Type                        HookTaskType
 	URL                         string `xorm:"TEXT"`
@@ -565,6 +689,7 @@ func prepareHookTasks(e Engine, repo *Repository, event HookEventType, p apiv1ty
 	}
 
 	var payloader apiv1types.WebhookPayloader
+	hookIDs := make([]int64, 0, len(webhooks))
 	for _, w := range webhooks {
 		switch event {
 		case HookEventTypeCreate:
@@ -646,12 +771,16 @@ func prepareHookTasks(e Engine, repo *Repository, event HookEventType, p apiv1ty
 		}); err != nil {
 			return errors.Newf("createHookTask: %v", err)
 		}
+		hookIDs = append(hookIDs, w.ID)
 	}
 
-	// It's safe to fail when the whole function is called during hook execution
-	// because resource released after exit. Also, there is no process started to
-	// consume this input during hook execution.
-	go HookQueue.Add(repo.ID)
+	// Signal each webhook independently so deliveries to different webhooks
+	// don't block each other. It's safe to call during hook execution because
+	// no delivery queue is initialized in that short-lived process; the
+	// persisted tasks are recovered on the next web process startup.
+	for _, hookID := range hookIDs {
+		QueueHookDelivery(hookID)
+	}
 	return nil
 }
 
@@ -692,18 +821,49 @@ func TestWebhook(repo *Repository, event HookEventType, p apiv1types.WebhookPayl
 	return prepareHookTasks(x, repo, event, p, []*Webhook{webhook})
 }
 
+// deliver performs the HTTP delivery and always leaves a definite result on
+// the task (delivered or failed, including invalid URL, blocked network,
+// timeout, and non-2xx responses) so the task is never retried implicitly and
+// the next task of the same webhook can proceed.
 func (t *HookTask) deliver() {
+	t.IsDelivered = true
+	t.ResponseInfo = &HookResponse{
+		Headers: map[string]string{},
+	}
+
+	defer func() {
+		t.Delivered = time.Now().UnixNano()
+		if t.IsSucceed {
+			log.Trace("Hook delivered: %s", t.UUID)
+		} else {
+			log.Trace("Hook delivery failed: %s", t.UUID)
+		}
+
+		// Update webhook last delivery status.
+		w, err := GetWebhookByID(t.HookID)
+		if err != nil {
+			log.Error("GetWebhookByID: %v", err)
+			return
+		}
+		if t.IsSucceed {
+			w.LastStatus = HookStatusSucceed
+		} else {
+			w.LastStatus = HookStatusFailed
+		}
+		if err = UpdateWebhook(w); err != nil {
+			log.Error("UpdateWebhook: %v", err)
+		}
+	}()
+
 	payloadURL, err := url.Parse(t.URL)
 	if err != nil {
-		t.ResponseContent = fmt.Sprintf(`{"body": "Cannot parse payload URL: %v"}`, err)
+		t.ResponseInfo.Body = fmt.Sprintf("Cannot parse payload URL: %v", err)
 		return
 	}
 	if netx.IsBlockedLocalHostname(payloadURL.Hostname(), conf.Security.LocalNetworkAllowlist) {
-		t.ResponseContent = `{"body": "Payload URL resolved to a local network address that is implicitly blocked."}`
+		t.ResponseInfo.Body = "Payload URL resolved to a local network address that is implicitly blocked."
 		return
 	}
-
-	t.IsDelivered = true
 
 	timeout := time.Duration(conf.Webhook.DeliverTimeout) * time.Second
 	req := httplib.Post(t.URL).SetTimeout(timeout, timeout).
@@ -735,37 +895,9 @@ func (t *HookTask) deliver() {
 		t.RequestInfo.Headers[k] = strings.Join(vals, ",")
 	}
 
-	t.ResponseInfo = &HookResponse{
-		Headers: map[string]string{},
-	}
-
-	defer func() {
-		t.Delivered = time.Now().UnixNano()
-		if t.IsSucceed {
-			log.Trace("Hook delivered: %s", t.UUID)
-		} else {
-			log.Trace("Hook delivery failed: %s", t.UUID)
-		}
-
-		// Update webhook last delivery status.
-		w, err := GetWebhookByID(t.HookID)
-		if err != nil {
-			log.Error("GetWebhookByID: %v", err)
-			return
-		}
-		if t.IsSucceed {
-			w.LastStatus = HookStatusSucceed
-		} else {
-			w.LastStatus = HookStatusFailed
-		}
-		if err = UpdateWebhook(w); err != nil {
-			log.Error("UpdateWebhook: %v", err)
-			return
-		}
-	}()
-
 	resp, err := req.Response()
 	if err != nil {
+		// Includes connection and read (i.e. timeout) errors.
 		t.ResponseInfo.Body = fmt.Sprintf("Delivery: %v", err)
 		return
 	}
@@ -786,45 +918,101 @@ func (t *HookTask) deliver() {
 	t.ResponseInfo.Body = string(p)
 }
 
-// DeliverHooks checks and delivers undelivered hooks.
-// TODO: shoot more hooks at same time.
-func DeliverHooks() {
+// drainPendingHookTasks delivers pending tasks of one webhook in ascending ID
+// (i.e. event production) order, one at a time. Every result, including
+// timeouts and failures, is persisted before the next task starts. It returns
+// false when the webhook has no pending task left.
+func drainPendingHookTasks(hookID int64) (keepGoing bool) {
 	tasks := make([]*HookTask, 0, 10)
-	_ = x.Where("is_delivered = ?", false).Iterate(new(HookTask),
-		func(idx int, bean any) error {
-			t := bean.(*HookTask)
-			t.deliver()
-			tasks = append(tasks, t)
-			return nil
-		})
+	if err := x.Where("hook_id = ?", hookID).And("is_delivered = ?", false).Asc("id").Find(&tasks); err != nil {
+		log.Error("Find undelivered hook tasks [hook_id: %d]: %v", hookID, err)
+		time.Sleep(hookDrainBackoff)
+		return true
+	}
+	if len(tasks) == 0 {
+		return false
+	}
+	log.Trace("Deliver %d hook tasks [hook_id: %d]", len(tasks), hookID)
 
-	// Update hook task status.
 	for _, t := range tasks {
-		if err := UpdateHookTask(t); err != nil {
+		t.deliver()
+		if err := updateHookTaskWithRetry(t); err != nil {
+			// The result is not durable, so a later drain may redeliver the
+			// task, potentially out of order at the target.
 			log.Error("UpdateHookTask [%d]: %v", t.ID, err)
 		}
 	}
+	return true
+}
 
-	// Start listening on new hook requests.
-	for repoID := range HookQueue.Queue() {
-		log.Trace("DeliverHooks [repo_id: %v]", repoID)
-		HookQueue.Remove(repoID)
+// hasPendingHookTask reports whether the webhook has any undelivered task.
+// On a database error it returns true so the caller falls back to a full
+// drain, which has its own error handling and backoff.
+func hasPendingHookTask(hookID int64) bool {
+	count, err := x.Where("hook_id = ?", hookID).And("is_delivered = ?", false).Count(new(HookTask))
+	if err != nil {
+		log.Error("Count undelivered hook tasks [hook_id: %d]: %v", hookID, err)
+		return true
+	}
+	return count > 0
+}
 
-		tasks = make([]*HookTask, 0, 5)
-		if err := x.Where("repo_id = ?", repoID).And("is_delivered = ?", false).Find(&tasks); err != nil {
-			log.Error("Get repository [%s] hook tasks: %v", repoID, err)
-			continue
+func updateHookTaskWithRetry(t *HookTask) error {
+	var err error
+	for attempt := 0; attempt < hookTaskUpdateMaxRetries; attempt++ {
+		if err = UpdateHookTask(t); err == nil {
+			return nil
 		}
-		for _, t := range tasks {
-			t.deliver()
-			if err := UpdateHookTask(t); err != nil {
-				log.Error("UpdateHookTask [%d]: %v", t.ID, err)
-				continue
-			}
+		if attempt < hookTaskUpdateMaxRetries-1 {
+			time.Sleep(hookTaskUpdateRetryInterval)
 		}
+	}
+	return err
+}
+
+// pendingHookIDs returns IDs of webhooks that have undelivered tasks matching
+// the optional condition (and its bind args), ordered by webhook ID.
+func pendingHookIDs(condition string, args ...any) ([]int64, error) {
+	type hookIDRow struct {
+		HookID int64
+	}
+	rows := make([]hookIDRow, 0)
+	sess := x.Table(new(HookTask)).
+		Select("hook_id").
+		Where("is_delivered = ?", false).
+		GroupBy("hook_id").
+		Asc("hook_id")
+	if condition != "" {
+		sess = sess.And(condition, args...)
+	}
+	if err := sess.Find(&rows); err != nil {
+		return nil, err
+	}
+
+	hookIDs := make([]int64, len(rows))
+	for i, row := range rows {
+		hookIDs[i] = row.HookID
+	}
+	return hookIDs, nil
+}
+
+// enqueuePendingHookTasks schedules every webhook that has undelivered tasks.
+// It recovers deliveries interrupted by a service restart without enqueueing
+// tasks that have already completed.
+func enqueuePendingHookTasks(q *hookDeliveryQueue) {
+	hookIDs, err := pendingHookIDs("")
+	if err != nil {
+		log.Error("Find undelivered hook tasks on startup: %v", err)
+		return
+	}
+	for _, hookID := range hookIDs {
+		q.add(hookID)
 	}
 }
 
+// InitDeliverHooks starts the per-webhook delivery workers and re-enqueues
+// tasks that were still pending when the previous process exited.
 func InitDeliverHooks() {
-	go DeliverHooks()
+	hookDeliverer = newHookDeliveryQueue(conf.Webhook.DeliverConcurrency, drainPendingHookTasks, hasPendingHookTask)
+	enqueuePendingHookTasks(hookDeliverer)
 }

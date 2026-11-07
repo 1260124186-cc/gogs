@@ -195,7 +195,7 @@ func (pr *PullRequest) Merge(doer *User, baseGitRepo *git.Repository, mergeStyle
 	ctx := context.TODO()
 
 	defer func() {
-		go HookQueue.Add(pr.BaseRepo.ID)
+		go QueueUndeliveredRepoHookTasks(pr.BaseRepo.ID)
 		go AddTestPullRequestTask(doer, pr.BaseRepo.ID, pr.BaseBranch, false)
 	}()
 

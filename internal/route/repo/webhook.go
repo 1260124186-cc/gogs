@@ -569,7 +569,7 @@ func RedeliveryWebhook(c *context.Context) {
 		return
 	}
 
-	go database.HookQueue.Add(c.Repo.Repository.ID)
+	go database.QueueHookDelivery(webhook.ID)
 	c.Flash.Info(c.Tr("repo.settings.webhook.redelivery_success", hookTask.UUID))
 	c.Status(http.StatusOK)
 }
