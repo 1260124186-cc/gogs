@@ -269,6 +269,7 @@ func Run(configPath string, portOverride int) error {
 				m.Post("/slack/:id", bindIgnErr(form.NewSlackHook{}), repo.WebhooksSlackEditPost)
 				m.Post("/discord/:id", bindIgnErr(form.NewDiscordHook{}), repo.WebhooksDiscordEditPost)
 				m.Post("/dingtalk/:id", bindIgnErr(form.NewDingtalkHook{}), repo.WebhooksDingtalkEditPost)
+				m.Post("/:id/rotate-secret", bindIgnErr(form.RotateWebhookSecret{}), repo.RotateWebhookSecret)
 			}, repo.InjectOrgRepoContext())
 		}
 

@@ -25,4 +25,15 @@
 		</div>
 		{{template "repo/settings/webhook/settings" .}}
 	</form>
+	{{if .PageIsSettingsHooksEdit}}
+		<div class="ui horizontal divider">{{.i18n.Tr "repo.settings.webhook.rotate_secret"}}</div>
+		<form class="ui form" action="{{$.Link}}/rotate-secret" method="post">
+			<div class="required field">
+				<label for="rotate_secret">{{.i18n.Tr "repo.settings.webhook.rotate_secret_new"}}</label>
+				<input id="rotate_secret" name="secret" type="password" autocomplete="off" required>
+				<p class="text grey desc">{{.i18n.Tr "repo.settings.webhook.rotate_secret_desc" | Safe}}</p>
+			</div>
+			<button class="ui green button" type="submit">{{.i18n.Tr "repo.settings.webhook.rotate_secret"}}</button>
+		</form>
+	{{end}}
 {{end}}

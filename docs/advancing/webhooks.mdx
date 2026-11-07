@@ -26,11 +26,23 @@ Every webhook delivery includes the following HTTP headers:
 |---|---|---|
 | `X-Gogs-Delivery` | A unique UUID identifying this delivery. | `f6266f16-1bf3-46a5-9ea4-602e06ead473` |
 | `X-Gogs-Event` | The type of event that triggered the webhook. | `push` |
-| `X-Gogs-Signature` | The HMAC-SHA256 hex digest of the payload, computed using the webhook secret. Use this to verify that the payload was sent by Gogs. | `1921679ed627...` |
+| `X-Gogs-Signature` | The HMAC-SHA256 hex digest of the payload, computed using the current webhook secret. Use this to verify that the payload was sent by Gogs. | `1921679ed627...` |
+| `X-Gogs-Signature-Previous` | Present only during a secret rotation grace period. The HMAC-SHA256 hex digest of the payload computed using the previous webhook secret. | `a04c91b27f0d...` |
 
 <Tip>
   Always verify the `X-Gogs-Signature` header in your webhook receiver to ensure the request genuinely originated from your Gogs instance.
 </Tip>
+
+## Rotating the secret
+
+To avoid signature verification failures while a new secret is rolled out, a webhook secret can be rotated from the webhook settings page. During the grace period, which defaults to 7 days and is configurable with `[webhook] SECRET_ROTATION_GRACE_PERIOD`, deliveries carry signatures for both secrets:
+
+- `X-Gogs-Signature` is computed with the new secret.
+- `X-Gogs-Signature-Previous` is computed with the previous secret.
+
+A receiver should accept a delivery when the HMAC of the request body matches either header. When the grace period ends, the previous secret is deleted automatically and deliveries only carry `X-Gogs-Signature`.
+
+The rotation endpoint is idempotent. Repeating the same request while the grace period is still active does not extend it or keep multiple previous secrets. Requesting a different secret before the grace period ends is rejected until the previous rotation completes.
 
 ## Example payload
 

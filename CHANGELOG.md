@@ -4,6 +4,10 @@ All notable changes to Gogs are documented in this file.
 
 ## 0.15.0+dev (`main`)
 
+### Added
+
+- Gogs webhooks now support rotating the signing secret with a grace period (`[webhook] SECRET_ROTATION_GRACE_PERIOD`, defaults to 7 days). During the grace period, deliveries include signatures for both the new secret (`X-Gogs-Signature`) and the previous secret (`X-Gogs-Signature-Previous`), so receivers can roll out the new secret without failed verification. The rotation is idempotent and the end time survives service restarts.
+
 ### Changed
 
 - Docker builds from `main` are now published only as `gogs/gogs:edge`, using the next-generation `Dockerfile.next`. The legacy `Dockerfile` no longer produces `main` builds. The `gogs/gogs:latest` and `gogs/gogs:next-latest` tags now always point to the highest published stable release, never to a back-patch on an older line. [#8278](https://github.com/gogs/gogs/pull/8278)

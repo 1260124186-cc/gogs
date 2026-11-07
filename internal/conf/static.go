@@ -122,10 +122,11 @@ var (
 
 	// Webhook settings
 	Webhook struct {
-		Types          []string
-		DeliverTimeout int
-		SkipTLSVerify  bool `ini:"SKIP_TLS_VERIFY"`
-		PagingNum      int
+		Types                     []string
+		DeliverTimeout            int
+		SkipTLSVerify             bool `ini:"SKIP_TLS_VERIFY"`
+		PagingNum                 int
+		SecretRotationGracePeriod time.Duration `ini:"SECRET_ROTATION_GRACE_PERIOD"`
 	}
 
 	// Markdown settings

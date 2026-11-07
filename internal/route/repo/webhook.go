@@ -384,6 +384,42 @@ func WebhooksEditPost(c *context.Context, orCtx *orgRepoContext, f form.NewWebho
 	validateAndUpdateWebhook(c, orCtx, w)
 }
 
+// RotateWebhookSecret starts a replayable rotation that replaces the webhook
+// secret while keeping the previous one valid for the configured grace
+// period.
+func RotateWebhookSecret(c *context.Context, orCtx *orgRepoContext, f form.RotateWebhookSecret) {
+	c.Title("repo.settings.update_webhook")
+	c.PageIs("SettingsHooks")
+	c.PageIs("SettingsHooksEdit")
+
+	w := loadWebhook(c, orCtx)
+	if c.Written() {
+		return
+	}
+	if c.HasError() {
+		c.HTML(http.StatusBadRequest, orCtx.TmplNew)
+		return
+	}
+	if w.HookTaskType != database.GOGS {
+		c.NotFound()
+		return
+	}
+
+	err := database.RotateWebhookSecret(w, f.Secret, conf.Webhook.SecretRotationGracePeriod)
+	if err != nil {
+		if database.IsErrWebhookSecretRotating(err) {
+			c.Flash.Error(c.Tr("repo.settings.webhook.err_secret_rotation_in_progress"))
+			c.Redirect(fmt.Sprintf("%s/settings/hooks/%d", orCtx.Link, w.ID))
+			return
+		}
+		c.Error(err, "rotate webhook secret")
+		return
+	}
+
+	c.Flash.Success(c.Tr("repo.settings.webhook.secret_rotation_success"))
+	c.Redirect(fmt.Sprintf("%s/settings/hooks/%d", orCtx.Link, w.ID))
+}
+
 func WebhooksSlackEditPost(c *context.Context, orCtx *orgRepoContext, f form.NewSlackHook) {
 	c.Title("repo.settings.update_webhook")
 	c.PageIs("SettingsHooks")

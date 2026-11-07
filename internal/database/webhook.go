@@ -92,19 +92,27 @@ const (
 
 // Webhook represents a web hook object.
 type Webhook struct {
-	ID           int64
-	RepoID       int64
-	OrgID        int64
-	URL          string `xorm:"url TEXT"`
-	ContentType  HookContentType
-	Secret       string     `xorm:"TEXT"`
-	Events       string     `xorm:"TEXT"`
-	*HookEvent   `xorm:"-"` // LEGACY [1.0]: Cannot ignore JSON (i.e. json:"-") here, it breaks old backup archive
-	IsSSL        bool       `xorm:"is_ssl"`
-	IsActive     bool
-	HookTaskType HookTaskType
-	Meta         string     `xorm:"TEXT"` // store hook-specific attributes
-	LastStatus   HookStatus // Last delivery status
+	ID          int64
+	RepoID      int64
+	OrgID       int64
+	URL         string `xorm:"url TEXT"`
+	ContentType HookContentType
+	Secret      string `xorm:"TEXT"`
+	// PreviousSecret is the secret replaced by the latest rotation. It keeps
+	// producing valid signatures until PreviousSecretExpiresUnix elapses. Empty
+	// means no rotation is in progress.
+	PreviousSecret string `xorm:"TEXT"`
+	// PreviousSecretExpiresUnix is the absolute UNIX timestamp at which the
+	// previous secret stops being accepted. Zero means no rotation is in
+	// progress.
+	PreviousSecretExpiresUnix int64
+	Events                    string     `xorm:"TEXT"`
+	*HookEvent                `xorm:"-"` // LEGACY [1.0]: Cannot ignore JSON (i.e. json:"-") here, it breaks old backup archive
+	IsSSL                     bool       `xorm:"is_ssl"`
+	IsActive                  bool
+	HookTaskType              HookTaskType
+	Meta                      string     `xorm:"TEXT"` // store hook-specific attributes
+	LastStatus                HookStatus // Last delivery status
 
 	Created     time.Time `xorm:"-" json:"-" gorm:"-"`
 	CreatedUnix int64
@@ -309,6 +317,104 @@ func UpdateWebhook(w *Webhook) error {
 	return err
 }
 
+// DefaultWebhookSecretRotationGracePeriod is applied when a rotation is
+// triggered without an explicit grace period.
+const DefaultWebhookSecretRotationGracePeriod = 7 * 24 * time.Hour
+
+// ErrWebhookSecretRotating is returned when a rotation to a different secret is
+// requested while a rotation of the same webhook is still in its grace period.
+var ErrWebhookSecretRotating = errors.New("webhook secret rotation is already in progress")
+
+// IsErrWebhookSecretRotating returns true if the error is
+// ErrWebhookSecretRotating.
+func IsErrWebhookSecretRotating(err error) bool {
+	return errors.Is(err, ErrWebhookSecretRotating)
+}
+
+// RotateWebhookSecret rotates the webhook secret to newSecret and retains the
+// current secret for gracePeriod so receivers can accept signatures computed
+// with either secret during the transition.
+//
+// Replaying the same request, i.e. newSecret equals the current secret, while
+// the rotation is in progress is a no-op. The original deadline and previous
+// secret are kept, so retries neither extend the grace period nor stack
+// multiple previous secrets. Requesting a different secret during the grace
+// period returns ErrWebhookSecretRotating.
+//
+// The deadline is an absolute timestamp persisted in the database, so the
+// remaining time is unaffected by service restarts. Only secret-related
+// columns are written, other configuration such as the active state is left
+// untouched.
+func RotateWebhookSecret(w *Webhook, newSecret string, gracePeriod time.Duration) error {
+	if newSecret == "" {
+		return errors.New("new webhook secret cannot be empty")
+	}
+	if gracePeriod <= 0 {
+		gracePeriod = DefaultWebhookSecretRotationGracePeriod
+	}
+
+	now := time.Now()
+	if w.PreviousSecretExpiresUnix > now.Unix() {
+		if w.Secret != newSecret {
+			return ErrWebhookSecretRotating
+		}
+		// Replay of the same rotation request, keep the original deadline and
+		// previous secret.
+		return nil
+	}
+
+	if w.Secret == newSecret {
+		// No rotation in progress and the secret already matches, nothing to do.
+		return nil
+	}
+
+	w.PreviousSecret = w.Secret
+	w.Secret = newSecret
+	w.PreviousSecretExpiresUnix = now.Add(gracePeriod).Unix()
+	w.BeforeUpdate()
+	_, err := x.Id(w.ID).
+		Cols("secret", "previous_secret", "previous_secret_expires_unix", "updated_unix").
+		Update(w)
+	if err != nil {
+		return errors.Wrap(err, "update webhook")
+	}
+	return nil
+}
+
+// finalizeWebhookSecretRotation purges the previous secret of a webhook whose
+// grace period has elapsed. It is a no-op when the grace period is still
+// active or no rotation is in progress.
+func finalizeWebhookSecretRotation(w *Webhook, now time.Time) error {
+	if w.PreviousSecret == "" || w.PreviousSecretExpiresUnix == 0 || w.PreviousSecretExpiresUnix > now.Unix() {
+		return nil
+	}
+
+	w.PreviousSecret = ""
+	w.PreviousSecretExpiresUnix = 0
+	w.BeforeUpdate()
+	_, err := x.Id(w.ID).
+		Cols("previous_secret", "previous_secret_expires_unix", "updated_unix").
+		Update(w)
+	if err != nil {
+		return errors.Wrap(err, "update webhook")
+	}
+	return nil
+}
+
+// FinalizeExpiredWebhookSecretRotations purges the previous secrets of all
+// webhooks whose grace periods have elapsed. It is safe to run at service
+// startup and periodically.
+func FinalizeExpiredWebhookSecretRotations() error {
+	_, err := x.Where("previous_secret_expires_unix > 0").
+		And("previous_secret_expires_unix <= ?", time.Now().Unix()).
+		Cols("previous_secret", "previous_secret_expires_unix", "updated_unix").
+		Update(&Webhook{})
+	if err != nil {
+		return errors.Wrap(err, "finalize expired webhook secret rotations")
+	}
+	return nil
+}
+
 // deleteWebhook uses argument bean as query condition,
 // ID must be specified and do not assign unnecessary fields.
 func deleteWebhook(bean *Webhook) (err error) {
@@ -430,13 +536,17 @@ type HookResponse struct {
 
 // HookTask represents a hook task.
 type HookTask struct {
-	ID                          int64
-	RepoID                      int64 `xorm:"INDEX"`
-	HookID                      int64
-	UUID                        string
-	Type                        HookTaskType
-	URL                         string `xorm:"TEXT"`
-	Signature                   string `xorm:"TEXT"`
+	ID        int64
+	RepoID    int64 `xorm:"INDEX"`
+	HookID    int64
+	UUID      string
+	Type      HookTaskType
+	URL       string `xorm:"TEXT"`
+	Signature string `xorm:"TEXT"`
+	// PreviousSignature is the HMAC-SHA256 hex digest computed with the
+	// previous webhook secret during a rotation grace period. Empty once the
+	// grace period ends.
+	PreviousSignature           string `xorm:"TEXT"`
 	apiv1types.WebhookPayloader `xorm:"-" json:"-" gorm:"-"`
 	PayloadContent              string `xorm:"TEXT"`
 	ContentType                 HookContentType
@@ -558,6 +668,14 @@ func UpdateHookTask(t *HookTask) error {
 	return err
 }
 
+// signWebhookPayload returns the HMAC-SHA256 hex digest of the payload
+// computed with the webhook secret.
+func signWebhookPayload(secret string, payload []byte) string {
+	sig := hmac.New(sha256.New, []byte(secret))
+	_, _ = sig.Write(payload)
+	return hex.EncodeToString(sig.Sum(nil))
+}
+
 // prepareHookTasks adds list of webhooks to task queue.
 func prepareHookTasks(e Engine, repo *Repository, event HookEventType, p apiv1types.WebhookPayloader, webhooks []*Webhook) (err error) {
 	if len(webhooks) == 0 {
@@ -622,27 +740,39 @@ func prepareHookTasks(e Engine, repo *Repository, event HookEventType, p apiv1ty
 			payloader = p
 		}
 
-		var signature string
-		if len(w.Secret) > 0 {
-			data, err := payloader.JSONPayload()
-			if err != nil {
-				log.Error("prepareWebhooks.JSONPayload: %v", err)
+		var signature, previousSignature string
+		if len(w.Secret) > 0 || len(w.PreviousSecret) > 0 {
+			data, payloadErr := payloader.JSONPayload()
+			if payloadErr != nil {
+				log.Error("prepareWebhooks.JSONPayload: %v", payloadErr)
 			}
-			sig := hmac.New(sha256.New, []byte(w.Secret))
-			_, _ = sig.Write(data)
-			signature = hex.EncodeToString(sig.Sum(nil))
+			if len(w.Secret) > 0 {
+				signature = signWebhookPayload(w.Secret, data)
+			}
+			if len(w.PreviousSecret) > 0 {
+				if w.PreviousSecretExpiresUnix <= time.Now().Unix() {
+					// The grace period has elapsed, purge the previous secret
+					// and sign with the current one only.
+					if finalizeErr := finalizeWebhookSecretRotation(w, time.Now()); finalizeErr != nil {
+						log.Error("finalizeWebhookSecretRotation [%d]: %v", w.ID, finalizeErr)
+					}
+				} else {
+					previousSignature = signWebhookPayload(w.PreviousSecret, data)
+				}
+			}
 		}
 
 		if err = createHookTask(e, &HookTask{
-			RepoID:           repo.ID,
-			HookID:           w.ID,
-			Type:             w.HookTaskType,
-			URL:              w.URL,
-			Signature:        signature,
-			WebhookPayloader: payloader,
-			ContentType:      w.ContentType,
-			EventType:        event,
-			IsSSL:            w.IsSSL,
+			RepoID:            repo.ID,
+			HookID:            w.ID,
+			Type:              w.HookTaskType,
+			URL:               w.URL,
+			Signature:         signature,
+			PreviousSignature: previousSignature,
+			WebhookPayloader:  payloader,
+			ContentType:       w.ContentType,
+			EventType:         event,
+			IsSSL:             w.IsSSL,
 		}); err != nil {
 			return errors.Newf("createHookTask: %v", err)
 		}
@@ -719,6 +849,11 @@ func (t *HookTask) deliver() {
 			// redirects rather than chase them.
 			return errors.Newf("refusing to follow webhook redirect to %q", req.URL.Redacted())
 		})
+	// During a secret rotation grace period, also send the signature computed
+	// with the previous secret so receivers can accept either one.
+	if t.PreviousSignature != "" {
+		req = req.Header("X-Gogs-Signature-Previous", t.PreviousSignature)
+	}
 
 	switch t.ContentType {
 	case JSON:
@@ -825,6 +960,27 @@ func DeliverHooks() {
 	}
 }
 
+// webhookSecretRotationSweepInterval is how often expired rotation grace
+// periods are purged. Expiry is also handled lazily per delivery, so the
+// interval only bounds how long previous secrets linger on webhooks without
+// traffic.
+const webhookSecretRotationSweepInterval = time.Minute
+
+func sweepExpiredWebhookSecretRotations() {
+	if err := FinalizeExpiredWebhookSecretRotations(); err != nil {
+		log.Error("Failed to finalize expired webhook secret rotations: %v", err)
+	}
+}
+
 func InitDeliverHooks() {
+	// Purge grace periods that elapsed while the service was down. Deadlines
+	// are absolute timestamps, so restarts do not extend them.
+	sweepExpiredWebhookSecretRotations()
+	go func() {
+		ticker := time.NewTicker(webhookSecretRotationSweepInterval)
+		for range ticker.C {
+			sweepExpiredWebhookSecretRotations()
+		}
+	}()
 	go DeliverHooks()
 }

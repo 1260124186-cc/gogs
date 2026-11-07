@@ -189,6 +189,14 @@ func (f *NewWebhook) Validate(ctx *macaron.Context, errs binding.Errors) binding
 	return validate(errs, ctx.Data, f, ctx.Locale)
 }
 
+type RotateWebhookSecret struct {
+	Secret string `binding:"Required"`
+}
+
+func (f *RotateWebhookSecret) Validate(ctx *macaron.Context, errs binding.Errors) binding.Errors {
+	return validate(errs, ctx.Data, f, ctx.Locale)
+}
+
 type NewSlackHook struct {
 	PayloadURL string `binding:"Required;Url"`
 	Channel    string `binding:"Required"`
