@@ -857,8 +857,21 @@ func MigrateRepository(doer, owner *User, opts MigrateRepoOptions) (*Repository,
 	}
 	headBranch := git.RefShortName(refspec)
 
-	// The repository is empty when its HEAD branch has no commits.
-	repo.IsBare = !gitRepo.HasBranch(context.TODO(), headBranch)
+	// HEAD may point to a branch that does not exist, in which case any existing
+	// branch becomes the default branch. Listing branches fails when there are
+	// none, i.e., the repository is empty.
+	if !gitRepo.HasBranch(context.TODO(), headBranch) {
+		branches, _ := gitRepo.Branches(context.TODO())
+		if len(branches) > 0 {
+			headBranch = branches[0]
+			_, err = gitRepo.SymbolicRef(context.TODO(), git.SymbolicRefOptions{Ref: git.RefsHeads + headBranch})
+			if err != nil {
+				return repo, errors.Wrap(err, "set HEAD branch")
+			}
+		} else {
+			repo.IsBare = true
+		}
+	}
 	if !repo.IsBare {
 		repo.DefaultBranch = headBranch
 
