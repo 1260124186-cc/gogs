@@ -8,11 +8,13 @@ All notable changes to Gogs are documented in this file.
 
 - Docker builds from `main` are now published only as `gogs/gogs:edge`, using the next-generation `Dockerfile.next`. The legacy `Dockerfile` no longer produces `main` builds. The `gogs/gogs:latest` and `gogs/gogs:next-latest` tags now always point to the highest published stable release, never to a back-patch on an older line. [#8278](https://github.com/gogs/gogs/pull/8278)
 - The minimum required Git version on the server is now 2.43.1. Gogs refuses to start with an older Git. [#8437](https://github.com/gogs/gogs/pull/8437)
+- The admin monitor page no longer lists running Git operations such as pull request merges, mirror syncs and migrations. [#8440](https://github.com/gogs/gogs/pull/8440)
 - Self-registration is now disabled by default. New instances must set `[auth] DISABLE_REGISTRATION = false` to allow sign-ups. [#8350](https://github.com/gogs/gogs/pull/8350)
 
 ### Fixed
 
 - Viewing a diff that renames a file whose name contains special characters (e.g., a double quote) no longer crashes the server. [#8437](https://github.com/gogs/gogs/pull/8437)
+- Migrating an empty repository no longer fails. [#8440](https://github.com/gogs/gogs/pull/8440)
 - _Security:_ On Windows hosts, an authenticated user with write access could write files into a repository's `.git` directory through a crafted tree path. [#8408](https://github.com/gogs/gogs/pull/8408) - [GHSA-85m5-cfw6-3cx8](https://github.com/gogs/gogs/security/advisories/GHSA-85m5-cfw6-3cx8)
 - _Security:_ Open redirect on the `/redirect` endpoint and post-action flows via a backslash in the redirect target. [#8391](https://github.com/gogs/gogs/pull/8391) - [GHSA-3g28-2vwg-gxq6](https://github.com/gogs/gogs/security/advisories/GHSA-3g28-2vwg-gxq6)
 - _Security:_ Argument injection through a crafted commit or branch reference on several repository API endpoints allowed an authenticated user with read access to leak internal server details to the error logs. [#8393](https://github.com/gogs/gogs/pull/8393) - [GHSA-mxrh-2rxr-6mqc](https://github.com/gogs/gogs/security/advisories/GHSA-mxrh-2rxr-6mqc)
