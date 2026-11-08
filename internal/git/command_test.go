@@ -42,18 +42,32 @@ func TestExec_ContextCancellation(t *testing.T) {
 }
 
 func TestWithTimeout(t *testing.T) {
-	for _, timeout := range []time.Duration{0, -time.Second} {
-		ctx, cancel := WithTimeout(context.Background(), timeout)
+	t.Run("zero uses the default timeout", func(t *testing.T) {
+		ctx, cancel := WithTimeout(context.Background(), 0)
+		defer cancel()
+		_, ok := ctx.Deadline()
+		assert.False(t, ok)
 		_, err := exec(ctx, "", []string{"version"}, nil)
-		cancel()
-		assert.NoError(t, err, "timeout %v", timeout)
-	}
+		assert.NoError(t, err)
+	})
 
-	ctx, cancel := WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	deadline, ok := ctx.Deadline()
-	assert.True(t, ok)
-	assert.WithinDuration(t, time.Now().Add(time.Minute), deadline, 5*time.Second)
+	t.Run("negative means no timeout", func(t *testing.T) {
+		ctx, cancel := WithTimeout(context.Background(), -time.Second)
+		defer cancel()
+		deadline, ok := ctx.Deadline()
+		assert.True(t, ok)
+		assert.True(t, deadline.After(time.Now().AddDate(1, 0, 0)))
+		_, err := exec(ctx, "", []string{"version"}, nil)
+		assert.NoError(t, err)
+	})
+
+	t.Run("positive", func(t *testing.T) {
+		ctx, cancel := WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		deadline, ok := ctx.Deadline()
+		assert.True(t, ok)
+		assert.WithinDuration(t, time.Now().Add(time.Minute), deadline, 5*time.Second)
+	})
 }
 
 func TestExec_DefaultTimeoutApplied(t *testing.T) {

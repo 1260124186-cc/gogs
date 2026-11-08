@@ -18,11 +18,15 @@ import (
 const defaultTimeout = time.Minute
 
 // WithTimeout returns a copy of ctx that times out after the given duration. A
-// timeout of zero or less returns ctx unchanged, so commands run with the
-// default timeout.
+// timeout of zero returns ctx unchanged, so commands run with the default
+// timeout, and a negative timeout means no timeout.
 func WithTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
-	if timeout <= 0 {
+	switch {
+	case timeout == 0:
 		return ctx, func() {}
+	case timeout < 0:
+		// Any deadline keeps the default timeout from being applied.
+		return context.WithDeadline(ctx, time.Now().AddDate(100, 0, 0))
 	}
 	return context.WithTimeout(ctx, timeout)
 }
