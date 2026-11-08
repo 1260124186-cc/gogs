@@ -43,18 +43,21 @@ func (r *Repository) PullRequestMeta(ctx context.Context, basePath, headBranch, 
 
 	// We need to create a temporary remote when the pull request is sent from a forked repository.
 	if r.path != basePath {
+		// Adding and removing the temporary remote must not be cut short when ctx is
+		// canceled, e.g., by a client disconnecting, or it is left behind with all of
+		// the fetched references.
+		remoteCtx := context.WithoutCancel(ctx)
 		tmpRemote := strconv.FormatInt(time.Now().UnixNano(), 10)
-		err := r.RemoteAdd(ctx, tmpRemote, basePath, RemoteAddOptions{Fetch: true})
+		defer func() {
+			err := r.RemoteRemove(remoteCtx, tmpRemote)
+			if err != nil && !errors.Is(err, ErrRemoteNotExist) {
+				clog.Error("Failed to remove remote %q [path: %s]: %v", tmpRemote, r.path, err)
+			}
+		}()
+		err := r.RemoteAdd(remoteCtx, tmpRemote, basePath, RemoteAddOptions{Fetch: true})
 		if err != nil {
 			return nil, errors.Wrap(err, "add remote")
 		}
-		defer func() {
-			err := r.RemoteRemove(ctx, tmpRemote)
-			if err != nil {
-				clog.Error("Failed to remove remote %q [path: %s]: %v", tmpRemote, r.path, err)
-				return
-			}
-		}()
 
 		tmpRemoteBranch = "remotes/" + tmpRemote + "/" + baseBranch
 	}
