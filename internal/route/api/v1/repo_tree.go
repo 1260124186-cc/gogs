@@ -16,13 +16,13 @@ func getRepoGitTree(c *context.APIContext) {
 	}
 
 	sha := c.Params(":sha")
-	tree, err := gitRepo.LsTree(c.Req.Context(), sha, git.LsTreeOptions{Verbatim: true})
+	tree, err := gitRepo.LsTree(c.Req.Context(), sha)
 	if err != nil {
 		c.NotFoundOrError(git.NewError(err), "get tree")
 		return
 	}
 
-	entries, err := tree.Entries(c.Req.Context(), git.LsTreeOptions{Verbatim: true})
+	entries, err := tree.Entries(c.Req.Context())
 	if err != nil {
 		c.Error(err, "list entries")
 		return

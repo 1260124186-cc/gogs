@@ -242,16 +242,14 @@ func (r *Repository) UpdateRepoFile(doer *User, opts UpdateRepoFileOptions) erro
 
 	err = localGitRepo.Push(context.TODO(), "origin", opts.NewBranch,
 		git.PushOptions{
-			CommandOptions: git.CommandOptions{
-				Envs: ComposeHookEnvs(ComposeHookEnvsOptions{
-					AuthUser:  doer,
-					OwnerName: r.MustOwner().Name,
-					OwnerSalt: r.MustOwner().Salt,
-					RepoID:    r.ID,
-					RepoName:  r.Name,
-					RepoPath:  r.RepoPath(),
-				}),
-			},
+			Envs: ComposeHookEnvs(ComposeHookEnvsOptions{
+				AuthUser:  doer,
+				OwnerName: r.MustOwner().Name,
+				OwnerSalt: r.MustOwner().Salt,
+				RepoID:    r.ID,
+				RepoName:  r.Name,
+				RepoPath:  r.RepoPath(),
+			}),
 		},
 	)
 	if err != nil {
@@ -376,16 +374,14 @@ func (r *Repository) DeleteRepoFile(doer *User, opts DeleteRepoFileOptions) (err
 
 	err = localGitRepo.Push(context.TODO(), "origin", opts.NewBranch,
 		git.PushOptions{
-			CommandOptions: git.CommandOptions{
-				Envs: ComposeHookEnvs(ComposeHookEnvsOptions{
-					AuthUser:  doer,
-					OwnerName: r.MustOwner().Name,
-					OwnerSalt: r.MustOwner().Salt,
-					RepoID:    r.ID,
-					RepoName:  r.Name,
-					RepoPath:  r.RepoPath(),
-				}),
-			},
+			Envs: ComposeHookEnvs(ComposeHookEnvsOptions{
+				AuthUser:  doer,
+				OwnerName: r.MustOwner().Name,
+				OwnerSalt: r.MustOwner().Salt,
+				RepoID:    r.ID,
+				RepoName:  r.Name,
+				RepoPath:  r.RepoPath(),
+			}),
 		},
 	)
 	if err != nil {
@@ -643,16 +639,14 @@ func (r *Repository) UploadRepoFiles(doer *User, opts UploadRepoFileOptions) err
 
 	err = localGitRepo.Push(context.TODO(), "origin", opts.NewBranch,
 		git.PushOptions{
-			CommandOptions: git.CommandOptions{
-				Envs: ComposeHookEnvs(ComposeHookEnvsOptions{
-					AuthUser:  doer,
-					OwnerName: r.MustOwner().Name,
-					OwnerSalt: r.MustOwner().Salt,
-					RepoID:    r.ID,
-					RepoName:  r.Name,
-					RepoPath:  r.RepoPath(),
-				}),
-			},
+			Envs: ComposeHookEnvs(ComposeHookEnvsOptions{
+				AuthUser:  doer,
+				OwnerName: r.MustOwner().Name,
+				OwnerSalt: r.MustOwner().Salt,
+				RepoID:    r.ID,
+				RepoName:  r.Name,
+				RepoPath:  r.RepoPath(),
+			}),
 		},
 	)
 	if err != nil {

@@ -76,17 +76,6 @@ func TestClone(t *testing.T) {
 				Branch: "develop",
 			},
 		},
-		{
-			opt: CloneOptions{
-				Depth: 1,
-			},
-		},
-		{
-			opt: CloneOptions{
-				Branch: "develop",
-				Depth:  1,
-			},
-		},
 	}
 	for _, test := range tests {
 		t.Run("", func(t *testing.T) {
@@ -174,11 +163,6 @@ func TestRepository_Push(t *testing.T) {
 			branch: "master",
 			opt:    PushOptions{},
 		},
-		{
-			remote: "origin",
-			branch: "master",
-			opt:    PushOptions{SetUpstream: true},
-		},
 	}
 	for _, test := range tests {
 		t.Run("", func(t *testing.T) {
@@ -263,18 +247,16 @@ func TestRepository_Move(t *testing.T) {
 	tests := []struct {
 		src string
 		dst string
-		opt MoveOptions
 	}{
 		{
 			src: "run.sh",
 			dst: "runme.sh",
-			opt: MoveOptions{},
 		},
 	}
 	for _, test := range tests {
 		t.Run("", func(t *testing.T) {
 			// Make sure it does not blow up
-			if err := r.Move(ctx, test.src, test.dst, test.opt); err != nil {
+			if err := r.Move(ctx, test.src, test.dst); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -297,10 +279,7 @@ func TestRepository_Add(t *testing.T) {
 	}
 
 	// Make sure it does not blow up
-	if err := r.Add(ctx, AddOptions{
-		All:       true,
-		Pathspecs: []string{"TESTFILE"},
-	}); err != nil {
+	if err := r.Add(ctx, AddOptions{All: true}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -400,16 +379,12 @@ func TestRepository_Commit(t *testing.T) {
 		require.NoError(t, os.WriteFile(fpath, []byte("something"), 0600))
 		require.NoError(t, r.Add(ctx, AddOptions{All: true}))
 
-		err := r.Commit(ctx, nil, message, CommitOptions{
-			Author: author,
-			CommandOptions: CommandOptions{
-				Envs: []string{
-					"GIT_CONFIG_COUNT=2",
-					"GIT_CONFIG_KEY_0=user.name", "GIT_CONFIG_VALUE_0=carol",
-					"GIT_CONFIG_KEY_1=user.email", "GIT_CONFIG_VALUE_1=carol@example.com",
-				},
-			},
-		})
+		t.Setenv("GIT_CONFIG_COUNT", "2")
+		t.Setenv("GIT_CONFIG_KEY_0", "user.name")
+		t.Setenv("GIT_CONFIG_VALUE_0", "carol")
+		t.Setenv("GIT_CONFIG_KEY_1", "user.email")
+		t.Setenv("GIT_CONFIG_VALUE_1", "carol@example.com")
+		err := r.Commit(ctx, nil, message, CommitOptions{Author: author})
 		require.NoError(t, err)
 
 		c, err := r.CatFileCommit(ctx, "master")
@@ -581,7 +556,7 @@ func TestRepository_RevParse(t *testing.T) {
 func TestRepository_CountObjects(t *testing.T) {
 	ctx := context.Background()
 	// Make sure it does not blow up
-	_, err := testrepo.CountObjects(ctx, CountObjectsOptions{})
+	_, err := testrepo.CountObjects(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}

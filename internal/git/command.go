@@ -13,11 +13,6 @@ import (
 	"github.com/sourcegraph/run"
 )
 
-// CommandOptions contains additional options for running a Git command.
-type CommandOptions struct {
-	Envs []string
-}
-
 // DefaultTimeout is the default timeout duration for all commands. It is
 // applied when the context does not already have a deadline.
 const DefaultTimeout = time.Minute

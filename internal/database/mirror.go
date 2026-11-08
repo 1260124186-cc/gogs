@@ -247,8 +247,8 @@ func isMirrorURLAccessible(timeout time.Duration, url string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	_, err := git.LsRemote(ctx, url, git.LsRemoteOptions{
-		Patterns:       []string{"HEAD"},
-		CommandOptions: git.CommandOptions{Envs: mirrorGitEnv()},
+		Patterns: []string{"HEAD"},
+		Envs:     mirrorGitEnv(),
 	})
 	return err == nil
 }
@@ -264,8 +264,8 @@ func mirrorRemoteUpdate(timeout time.Duration, repoPath string, prune bool) (str
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	return gitRepo.RemoteUpdate(ctx, git.RemoteUpdateOptions{
-		Prune:          prune,
-		CommandOptions: git.CommandOptions{Envs: mirrorGitEnv()},
+		Prune: prune,
+		Envs:  mirrorGitEnv(),
 	})
 }
 
