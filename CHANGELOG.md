@@ -18,6 +18,7 @@ All notable changes to Gogs are documented in this file.
 - Files whose names start with a double quote are no longer listed with a wrong name. [#8441](https://github.com/gogs/gogs/pull/8441)
 - Diffs no longer show a wrong name for files whose path contains " b/", e.g., `foo b/bar.txt`. [#8441](https://github.com/gogs/gogs/pull/8441)
 - Downloading a repository archive that times out no longer leaves a broken archive that later downloads receive. [#8441](https://github.com/gogs/gogs/pull/8441)
+- A file whose only change is its mode (e.g., made executable) no longer hides the next file in a diff. [#8441](https://github.com/gogs/gogs/pull/8441)
 - _Security:_ On Windows hosts, an authenticated user with write access could write files into a repository's `.git` directory through a crafted tree path. [#8408](https://github.com/gogs/gogs/pull/8408) - [GHSA-85m5-cfw6-3cx8](https://github.com/gogs/gogs/security/advisories/GHSA-85m5-cfw6-3cx8)
 - _Security:_ Open redirect on the `/redirect` endpoint and post-action flows via a backslash in the redirect target. [#8391](https://github.com/gogs/gogs/pull/8391) - [GHSA-3g28-2vwg-gxq6](https://github.com/gogs/gogs/security/advisories/GHSA-3g28-2vwg-gxq6)
 - _Security:_ Argument injection through a crafted commit or branch reference on several repository API endpoints allowed an authenticated user with read access to leak internal server details to the error logs. [#8393](https://github.com/gogs/gogs/pull/8393) - [GHSA-mxrh-2rxr-6mqc](https://github.com/gogs/gogs/security/advisories/GHSA-mxrh-2rxr-6mqc)
