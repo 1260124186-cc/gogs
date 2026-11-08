@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path"
@@ -101,8 +100,6 @@ type CloneOptions struct {
 	Bare bool
 	// Indicates whether to suppress the log output.
 	Quiet bool
-	// The branch to checkout for the working tree when Bare=false.
-	Branch string
 	// The additional environment variables to run the command with.
 	Envs []string
 }
@@ -129,37 +126,9 @@ func Clone(ctx context.Context, url, dst string, opts ...CloneOptions) error {
 	if opt.Quiet {
 		args = append(args, "--quiet")
 	}
-	if !opt.Bare && opt.Branch != "" {
-		args = append(args, "-b", opt.Branch)
-	}
 
 	args = append(args, "--end-of-options", url, dst)
 	_, err = exec(ctx, "", args, opt.Envs)
-	return err
-}
-
-// FetchOptions contains optional arguments for fetching repository updates.
-//
-// Docs: https://git-scm.com/docs/git-fetch
-type FetchOptions struct {
-	// Indicates whether to prune during fetching.
-	Prune bool
-}
-
-// Fetch fetches updates for the repository.
-func (r *Repository) Fetch(ctx context.Context, opts ...FetchOptions) error {
-	var opt FetchOptions
-	if len(opts) > 0 {
-		opt = opts[0]
-	}
-
-	args := []string{"fetch"}
-	if opt.Prune {
-		args = append(args, "--prune")
-	}
-	args = append(args, "--end-of-options")
-
-	_, err := exec(ctx, r.path, args, nil)
 	return err
 }
 
@@ -181,122 +150,6 @@ func (r *Repository) Push(ctx context.Context, remote, branch string, opts ...Pu
 	args := []string{"push"}
 	args = append(args, "--end-of-options", remote, branch)
 	_, err := exec(ctx, r.path, args, opt.Envs)
-	return err
-}
-
-// CheckoutOptions contains optional arguments for checking out to a branch.
-//
-// Docs: https://git-scm.com/docs/git-checkout
-type CheckoutOptions struct {
-	// The base branch if checks out to a new branch.
-	BaseBranch string
-}
-
-// Checkout checks out to given branch for the repository.
-func (r *Repository) Checkout(ctx context.Context, branch string, opts ...CheckoutOptions) error {
-	var opt CheckoutOptions
-	if len(opts) > 0 {
-		opt = opts[0]
-	}
-
-	args := []string{"checkout"}
-	if opt.BaseBranch != "" {
-		args = append(args, "-b", branch, "--end-of-options", opt.BaseBranch)
-	} else {
-		args = append(args, "--end-of-options", branch)
-	}
-
-	_, err := exec(ctx, r.path, args, nil)
-	return err
-}
-
-// ResetOptions contains optional arguments for resetting a branch.
-//
-// Docs: https://git-scm.com/docs/git-reset
-type ResetOptions struct {
-	// Indicates whether to perform a hard reset.
-	Hard bool
-}
-
-// Reset resets working tree to given revision for the repository.
-func (r *Repository) Reset(ctx context.Context, rev string, opts ...ResetOptions) error {
-	var opt ResetOptions
-	if len(opts) > 0 {
-		opt = opts[0]
-	}
-
-	args := []string{"reset"}
-	if opt.Hard {
-		args = append(args, "--hard")
-	}
-	args = append(args, "--end-of-options", rev)
-
-	_, err := exec(ctx, r.path, args, nil)
-	return err
-}
-
-// AddOptions contains optional arguments for adding local changes.
-//
-// Docs: https://git-scm.com/docs/git-add
-type AddOptions struct {
-	// Indicates whether to add all changes to index.
-	All bool
-}
-
-// Add adds local changes to index for the repository.
-func (r *Repository) Add(ctx context.Context, opts ...AddOptions) error {
-	var opt AddOptions
-	if len(opts) > 0 {
-		opt = opts[0]
-	}
-
-	args := []string{"add"}
-	if opt.All {
-		args = append(args, "--all")
-	}
-	_, err := exec(ctx, r.path, args, nil)
-	return err
-}
-
-// CommitOptions contains optional arguments to commit changes.
-//
-// Docs: https://git-scm.com/docs/git-commit
-type CommitOptions struct {
-	// Author is the author of the changes if that's not the same as committer.
-	Author *Signature
-}
-
-// Commit commits local changes with given author, committer and message for the
-// repository. The committer may be nil to use the one from Git configuration.
-func (r *Repository) Commit(ctx context.Context, committer *Signature, message string, opts ...CommitOptions) error {
-	var opt CommitOptions
-	if len(opts) > 0 {
-		opt = opts[0]
-	}
-
-	var envs []string
-	if committer != nil {
-		envs = committerEnvs(committer)
-	}
-
-	if opt.Author == nil {
-		opt.Author = committer
-	}
-
-	args := []string{"commit"}
-	if opt.Author != nil {
-		args = append(args, fmt.Sprintf("--author=%s <%s>", opt.Author.Name, opt.Author.Email))
-	}
-	args = append(args, "-m", message)
-	args = append(args, "--end-of-options")
-
-	_, err := exec(ctx, r.path, args, envs)
-	// No stderr but exit status 1 means nothing to commit. Git also exits with 1
-	// for other failures, e.g., an empty commit message, but reports them on
-	// stderr.
-	if err != nil && err.Error() == "exit status 1" {
-		return nil
-	}
 	return err
 }
 

@@ -286,14 +286,6 @@ func pipe(ctx context.Context, dir string, args []string, envs []string, stdout 
 	return err
 }
 
-// committerEnvs returns environment variables for setting the Git committer.
-func committerEnvs(committer *Signature) []string {
-	return []string{
-		"GIT_COMMITTER_NAME=" + committer.Name,
-		"GIT_COMMITTER_EMAIL=" + committer.Email,
-	}
-}
-
 // log logs a git command execution with its output.
 func log(dir string, args []string, output []byte) {
 	cmdStr := "git"
