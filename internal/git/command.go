@@ -13,9 +13,9 @@ import (
 	"github.com/sourcegraph/run"
 )
 
-// DefaultTimeout is the default timeout duration for all commands. It is
+// defaultTimeout is the default timeout duration for all commands. It is
 // applied when the context does not already have a deadline.
-const DefaultTimeout = time.Minute
+const defaultTimeout = time.Minute
 
 // cmd builds a *run.Command for git with the given arguments, environment
 // variables and working directory. DefaultTimeout will be applied if the context
@@ -24,7 +24,7 @@ func cmd(ctx context.Context, dir string, args []string, envs []string) (*run.Co
 	cancel := func() {}
 	if _, ok := ctx.Deadline(); !ok {
 		var timeoutCancel context.CancelFunc
-		ctx, timeoutCancel = context.WithTimeout(ctx, DefaultTimeout)
+		ctx, timeoutCancel = context.WithTimeout(ctx, defaultTimeout)
 		cancel = timeoutCancel
 	}
 

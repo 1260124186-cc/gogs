@@ -57,13 +57,13 @@ func TestSHA1_Equal(t *testing.T) {
 }
 
 func TestNewID(t *testing.T) {
-	sha, err := NewID([]byte("000000"))
+	sha, err := newID([]byte("000000"))
 	assert.Equal(t, errors.New("length must be 20"), err)
 	assert.Nil(t, sha)
 }
 
 func TestNewIDFromString(t *testing.T) {
-	sha, err := NewIDFromString("000000")
+	sha, err := newIDFromString("000000")
 	assert.Equal(t, errors.New("length must be 40"), err)
 	assert.Nil(t, sha)
 }
