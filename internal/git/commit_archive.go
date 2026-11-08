@@ -27,8 +27,12 @@ func (c *Commit) Archive(ctx context.Context, format ArchiveFormat, dst string) 
 		return errors.Wrap(err, "create temporary file")
 	}
 	tmpPath := tmp.Name()
-	_ = tmp.Close()
 	defer func() { _ = os.Remove(tmpPath) }()
+	err = tmp.Chmod(0o644)
+	_ = tmp.Close()
+	if err != nil {
+		return errors.Wrap(err, "change mode of temporary file")
+	}
 
 	prefix := filepath.Base(strings.TrimSuffix(c.repo.path, ".git")) + "/"
 	_, err = exec(ctx,
@@ -46,5 +50,15 @@ func (c *Commit) Archive(ctx context.Context, format ArchiveFormat, dst string) 
 	if err != nil {
 		return err
 	}
-	return os.Rename(tmpPath, dst)
+
+	err = os.Rename(tmpPath, dst)
+	if err != nil {
+		// On Windows, the rename fails while a concurrent request that created the
+		// same archive is still serving it.
+		if _, statErr := os.Stat(dst); statErr == nil {
+			return nil
+		}
+		return errors.Wrap(err, "rename temporary file")
+	}
+	return nil
 }
