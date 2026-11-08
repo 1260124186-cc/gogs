@@ -734,18 +734,10 @@ func newIssue(e *xorm.Session, opts NewIssueOptions) (err error) {
 		return err
 	}
 
-	if len(opts.Attachments) > 0 {
-		attachments, err := getAttachmentsByUUIDs(e, opts.Attachments)
-		if err != nil {
-			return errors.Newf("getAttachmentsByUUIDs [uuids: %v]: %v", opts.Attachments, err)
-		}
-
-		for i := range attachments {
-			attachments[i].IssueID = opts.Issue.ID
-			if _, err = e.ID(attachments[i].ID).Update(attachments[i]); err != nil {
-				return errors.Newf("update attachment [id: %d]: %v", attachments[i].ID, err)
-			}
-		}
+	// Only pending attachments uploaded by the issue poster are claimed, so
+	// attachments of other users and already linked ones are left untouched.
+	if _, err = claimAttachments(e, opts.Issue.PosterID, opts.Issue.ID, 0, opts.Attachments); err != nil {
+		return err
 	}
 
 	return opts.Issue.loadAttributes(e)

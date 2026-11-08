@@ -464,7 +464,7 @@ func uploadAttachment(c *context.Context, allowedTypes []string) {
 		return
 	}
 
-	attach, err := database.NewAttachment(header.Filename, buf, file)
+	attach, err := database.NewAttachment(c.User.ID, header.Filename, buf, file)
 	if err != nil {
 		c.Error(err, "new attachment")
 		return

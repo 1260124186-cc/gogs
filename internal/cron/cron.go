@@ -62,6 +62,17 @@ func NewContext() {
 			go database.DeleteOldRepositoryArchives()
 		}
 	}
+	if conf.Cron.AttachmentCleanup.Enabled {
+		entry, err = c.AddFunc("Attachment cleanup", conf.Cron.AttachmentCleanup.Schedule, database.DeleteExpiredAttachments)
+		if err != nil {
+			log.Fatal("Cron.(attachment cleanup): %v", err)
+		}
+		if conf.Cron.AttachmentCleanup.RunAtStart {
+			entry.Prev = time.Now()
+			entry.ExecTimes++
+			go database.DeleteExpiredAttachments()
+		}
+	}
 	c.Start()
 }
 

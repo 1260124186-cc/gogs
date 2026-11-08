@@ -219,26 +219,10 @@ func createComment(e *xorm.Session, opts *CreateCommentOptions) (_ *Comment, err
 			return nil, err
 		}
 
-		// Check attachments
-		attachments := make([]*Attachment, 0, len(opts.Attachments))
-		for _, uuid := range opts.Attachments {
-			attach, err := getAttachmentByUUID(e, uuid)
-			if err != nil {
-				if IsErrAttachmentNotExist(err) {
-					continue
-				}
-				return nil, errors.Newf("getAttachmentByUUID [%s]: %v", uuid, err)
-			}
-			attachments = append(attachments, attach)
-		}
-
-		for i := range attachments {
-			attachments[i].IssueID = opts.Issue.ID
-			attachments[i].CommentID = comment.ID
-			// No assign value could be 0, so ignore AllCols().
-			if _, err = e.ID(attachments[i].ID).Update(attachments[i]); err != nil {
-				return nil, errors.Newf("update attachment [%d]: %v", attachments[i].ID, err)
-			}
+		// Only pending attachments uploaded by the commenter are claimed, so
+		// attachments of other users and already linked ones are left untouched.
+		if _, err = claimAttachments(e, opts.Doer.ID, opts.Issue.ID, comment.ID, opts.Attachments); err != nil {
+			return nil, err
 		}
 
 	case CommentTypeReopen:

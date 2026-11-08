@@ -174,6 +174,12 @@ var (
 			Schedule   string
 			OlderThan  time.Duration
 		} `ini:"cron.repo_archive_cleanup"`
+		AttachmentCleanup struct {
+			Enabled    bool
+			RunAtStart bool
+			Schedule   string
+			OlderThan  time.Duration
+		} `ini:"cron.attachment_cleanup"`
 	}
 
 	// Git settings

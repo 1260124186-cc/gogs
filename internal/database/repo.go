@@ -2075,10 +2075,11 @@ func SyncRepositoryHooks() error {
 var taskStatusTable = sync.NewStatusTable()
 
 const (
-	taskNameMirrorUpdate     = "mirror_update"
-	taskNameGitFSCK          = "git_fsck"
-	taskNameCheckRepoStats   = "check_repos_stats"
-	taskNameCleanOldArchives = "clean_old_archives"
+	taskNameMirrorUpdate            = "mirror_update"
+	taskNameGitFSCK                 = "git_fsck"
+	taskNameCheckRepoStats          = "check_repos_stats"
+	taskNameCleanOldArchives        = "clean_old_archives"
+	taskNameCleanExpiredAttachments = "clean_expired_attachments"
 )
 
 // GitFsck calls 'git fsck' to check repository health.

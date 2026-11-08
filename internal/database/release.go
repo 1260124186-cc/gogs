@@ -181,7 +181,12 @@ func NewRelease(gitRepo *git.Repository, r *Release, uuids []string) error {
 	}
 
 	if len(uuids) > 0 {
-		if _, err = sess.In("uuid", uuids).Cols("release_id").Update(&Attachment{ReleaseID: r.ID}); err != nil {
+		// Only pending attachments uploaded by the publisher can be linked,
+		// so attachments of other releases and other users are left untouched.
+		if _, err = sess.In("uuid", uuids).
+			Where("uploader_id = ? AND issue_id = 0 AND comment_id = 0 AND release_id = 0", r.PublisherID).
+			Cols("release_id").
+			Update(&Attachment{ReleaseID: r.ID}); err != nil {
 			return errors.Newf("link attachments: %v", err)
 		}
 	}
@@ -318,15 +323,28 @@ func UpdateRelease(doer *User, gitRepo *git.Repository, r *Release, isPublish bo
 		return errors.Newf("Update: %v", err)
 	}
 
-	// Unlink all current attachments and link back later if still valid
-	if _, err = sess.Exec("UPDATE attachment SET release_id = 0 WHERE release_id = ?", r.ID); err != nil {
-		return errors.Newf("unlink current attachments: %v", err)
-	}
-
+	// Link pending attachments uploaded by the editor.
 	if len(uuids) > 0 {
-		if _, err = sess.In("uuid", uuids).Cols("release_id").Update(&Attachment{ReleaseID: r.ID}); err != nil {
+		if _, err = sess.In("uuid", uuids).
+			Where("uploader_id = ? AND issue_id = 0 AND comment_id = 0 AND release_id = 0", doer.ID).
+			Cols("release_id").
+			Update(&Attachment{ReleaseID: r.ID}); err != nil {
 			return errors.Newf("link attachments: %v", err)
 		}
+	}
+
+	// Unlink current attachments that are no longer included in the form.
+	// Linking before unlinking keeps pending uploads of other users untouched.
+	unlinkSess := sess.Where("release_id = ?", r.ID)
+	if len(uuids) > 0 {
+		args := make([]any, len(uuids))
+		for i, uuid := range uuids {
+			args[i] = uuid
+		}
+		unlinkSess = unlinkSess.NotIn("uuid", args...)
+	}
+	if _, err = unlinkSess.Cols("release_id").Update(&Attachment{ReleaseID: 0}); err != nil {
+		return errors.Newf("unlink removed attachments: %v", err)
 	}
 
 	if err = sess.Commit(); err != nil {
