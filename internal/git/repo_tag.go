@@ -3,8 +3,9 @@ package git
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"strings"
+
+	"github.com/cockroachdb/errors"
 )
 
 // parseTag parses tag information from the (uncompressed) raw data of the tag
@@ -43,7 +44,7 @@ l:
 
 // getTag returns a tag by given SHA1 hash.
 func (r *Repository) getTag(ctx context.Context, id *SHA1) (*Tag, error) {
-	t, ok := r.cachedTags.Get(id.String())
+	t, ok := r.cachedTags.Load(id.String())
 	if ok {
 		logf("Cached tag hit: %s", id)
 		return t.(*Tag), nil
@@ -79,10 +80,10 @@ func (r *Repository) getTag(ctx context.Context, id *SHA1) (*Tag, error) {
 		tag.id = id
 		tag.repo = r
 	default:
-		return nil, fmt.Errorf("unsupported tag type: %s", typ)
+		return nil, errors.Newf("unsupported tag type: %s", typ)
 	}
 
-	r.cachedTags.Set(id.String(), tag)
+	r.cachedTags.Store(id.String(), tag)
 	return tag, nil
 }
 
@@ -157,7 +158,7 @@ type TagsPage struct {
 func (r *Repository) TagsAfter(ctx context.Context, after string, limit int) (*TagsPage, error) {
 	all, err := r.Tags(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("get tags: %w", err)
+		return nil, errors.Wrap(err, "get tags")
 	}
 	return tagsAfter(all, after, limit), nil
 }

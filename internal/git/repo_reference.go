@@ -2,8 +2,9 @@ package git
 
 import (
 	"context"
-	"errors"
 	"strings"
+
+	"github.com/cockroachdb/errors"
 )
 
 const (

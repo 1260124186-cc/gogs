@@ -3,11 +3,11 @@ package git
 import (
 	"bufio"
 	"bytes"
-	"errors"
-	"fmt"
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/cockroachdb/errors"
 )
 
 // DiffLineType is the line type in diff.
@@ -222,7 +222,7 @@ func (p *diffParser) readLine() error {
 	p.buffer, err = p.ReadBytes('\n')
 	if err != nil {
 		if err != io.EOF {
-			return fmt.Errorf("read string: %v", err)
+			return errors.Wrap(err, "read string")
 		}
 
 		p.isEOF = true
@@ -287,7 +287,7 @@ func (p *diffParser) parseFileHeader() (*DiffFile, error) {
 
 	a, b, err := parseDiffHeaderNames(line[len(diffHead):])
 	if err != nil {
-		return nil, fmt.Errorf("malformed diff header %q: %v", line, err)
+		return nil, errors.Wrapf(err, "malformed diff header %q", line)
 	}
 
 	file := &DiffFile{

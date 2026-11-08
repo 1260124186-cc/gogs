@@ -3,7 +3,8 @@ package git
 import (
 	"bytes"
 	"context"
-	"fmt"
+
+	"github.com/cockroachdb/errors"
 )
 
 // unescapeChars reverses escaped characters in quoted output from Git.
@@ -67,7 +68,7 @@ func parseTree(t *Tree, data []byte) ([]*TreeEntry, error) {
 			entry.mode = EntryTree
 			entry.typ = ObjectTree
 		default:
-			return nil, fmt.Errorf("unknown type: %v", string(data[pos:pos+step]))
+			return nil, errors.Newf("unknown type: %v", string(data[pos:pos+step]))
 		}
 		pos += step + 6 // Skip string type of entry type.
 
@@ -92,7 +93,7 @@ func parseTree(t *Tree, data []byte) ([]*TreeEntry, error) {
 //
 // Docs: https://git-scm.com/docs/git-ls-tree
 func (r *Repository) LsTree(ctx context.Context, treeID string) (*Tree, error) {
-	cache, ok := r.cachedTrees.Get(treeID)
+	cache, ok := r.cachedTrees.Load(treeID)
 	if ok {
 		logf("Cached tree hit: %s", treeID)
 		return cache.(*Tree), nil
@@ -122,6 +123,6 @@ func (r *Repository) LsTree(ctx context.Context, treeID string) (*Tree, error) {
 		return nil, err
 	}
 
-	r.cachedTrees.Set(treeID, t)
+	r.cachedTrees.Store(treeID, t)
 	return t, nil
 }

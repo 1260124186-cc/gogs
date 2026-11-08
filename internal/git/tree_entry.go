@@ -2,7 +2,6 @@ package git
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"runtime"
 	"sort"
@@ -10,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/cockroachdb/errors"
 )
 
 // EntryMode is the unix file mode of a tree entry.
@@ -233,7 +234,7 @@ func (es Entries) CommitsInfo(ctx context.Context, commit *Commit, opts ...Commi
 					Path: epath,
 				})
 				if err != nil {
-					setError(fmt.Errorf("get commit by path %q: %v", epath, err))
+					setError(errors.Wrapf(err, "get commit by path %q", epath))
 					return
 				}
 

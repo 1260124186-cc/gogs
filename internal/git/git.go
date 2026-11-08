@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 	"sync"
+
+	"github.com/cockroachdb/errors"
 )
 
 var (
@@ -56,7 +58,7 @@ func BinVersion(ctx context.Context) (string, error) {
 
 	fields := strings.Fields(string(stdout))
 	if len(fields) < 3 {
-		return "", fmt.Errorf("not enough output: %s", stdout)
+		return "", errors.Newf("not enough output: %s", stdout)
 	}
 
 	// Handle special case on Windows.
