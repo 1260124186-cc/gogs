@@ -310,6 +310,17 @@ func TestRepository_Commit(t *testing.T) {
 		}
 	})
 
+	t.Run("whitespace-only message", func(t *testing.T) {
+		require.NoError(t, os.WriteFile(filepath.Join(r.Path(), "EMPTY_MESSAGE"), []byte("something"), 0600))
+		require.NoError(t, r.Add(ctx, AddOptions{All: true}))
+		defer func() {
+			require.NoError(t, r.Reset(ctx, "HEAD", ResetOptions{Hard: true}))
+		}()
+
+		err := r.Commit(ctx, committer, " ")
+		assert.ErrorContains(t, err, "empty commit message")
+	})
+
 	t.Run("committer is also the author", func(t *testing.T) {
 		// Generate a file and add to index
 		fpath := filepath.Join(r.Path(), "COMMITTER_IS_AUTHOR")

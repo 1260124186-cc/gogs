@@ -299,8 +299,10 @@ func (r *Repository) Commit(ctx context.Context, committer *Signature, message s
 	args = append(args, "--end-of-options")
 
 	_, err := exec(ctx, r.path, args, envs)
-	// No stderr but exit status 1 means nothing to commit.
-	if isExitStatus(err, 1) {
+	// No stderr but exit status 1 means nothing to commit. Git also exits with 1
+	// for other failures, e.g., an empty commit message, but reports them on
+	// stderr.
+	if err != nil && err.Error() == "exit status 1" {
 		return nil
 	}
 	return err
