@@ -1,6 +1,9 @@
 package database
 
 import (
+	"os"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,4 +33,20 @@ From https://try.gogs.io/unknwon/upsteam
 			assert.Equal(t, test.expResults, parseRemoteUpdateOutput(test.output))
 		})
 	}
+}
+
+func Test_mirrorGitEnv(t *testing.T) {
+	t.Setenv("GIT_CONFIG_COUNT", "1")
+	t.Setenv("GIT_CONFIG_KEY_0", "http.proxy")
+	t.Setenv("GIT_CONFIG_VALUE_0", "http://proxy.example.com")
+
+	get := func(key string) string {
+		cmd := exec.Command("git", "config", "--get", key)
+		cmd.Env = append(os.Environ(), mirrorGitEnv()...)
+		out, err := cmd.Output()
+		assert.NoError(t, err, key)
+		return strings.TrimSpace(string(out))
+	}
+	assert.Equal(t, "http://proxy.example.com", get("http.proxy"))
+	assert.Equal(t, "false", get("http.followRedirects"))
 }
