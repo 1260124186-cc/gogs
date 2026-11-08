@@ -147,8 +147,9 @@ func (m *Mirror) SaveAddress(ctx context.Context, addr string) error {
 	// Once "origin" is removed, it must be added back even if ctx is canceled,
 	// e.g., by a client disconnecting.
 	ctx = context.WithoutCancel(ctx)
+	// A missing "origin" is fine, so that a mirror that lost it can be repaired.
 	err = gitRepo.RemoteRemove(ctx, "origin")
-	if err != nil {
+	if err != nil && !errors.Is(err, git.ErrRemoteNotExist) {
 		return errors.Newf("remove remote 'origin': %v", err)
 	}
 
