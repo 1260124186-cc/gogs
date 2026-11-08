@@ -116,7 +116,7 @@ func (r *Repository) CheckoutNewBranch(oldBranch, newBranch string) error {
 		return errors.Newf("open local copy: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(conf.Git.Timeout.Pull)*time.Second)
+	ctx, cancel := git.WithTimeout(context.TODO(), time.Duration(conf.Git.Timeout.Pull)*time.Second)
 	defer cancel()
 	if err := localGitRepo.Checkout(ctx, newBranch, git.CheckoutOptions{
 		BaseBranch: oldBranch,

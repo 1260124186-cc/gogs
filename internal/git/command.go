@@ -18,6 +18,16 @@ import (
 // applied when the context does not already have a deadline.
 const defaultTimeout = time.Minute
 
+// WithTimeout returns a copy of ctx that times out after the given duration. A
+// timeout of zero or less returns ctx unchanged, so commands run with the
+// default timeout.
+func WithTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if timeout <= 0 {
+		return ctx, func() {}
+	}
+	return context.WithTimeout(ctx, timeout)
+}
+
 // cmd builds a *run.Command for git with the given arguments, environment
 // variables and working directory. DefaultTimeout will be applied if the context
 // does not already have a deadline.

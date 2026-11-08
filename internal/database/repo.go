@@ -662,7 +662,7 @@ func UpdateLocalCopyBranch(repoPath, localPath, branch string, isWiki bool) (err
 		if isWiki {
 			branch = ""
 		}
-		ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(conf.Git.Timeout.Clone)*time.Second)
+		ctx, cancel := git.WithTimeout(context.TODO(), time.Duration(conf.Git.Timeout.Clone)*time.Second)
 		defer cancel()
 		if err = git.Clone(ctx, repoPath, localPath, git.CloneOptions{
 			Branch: branch,
@@ -823,7 +823,7 @@ func MigrateRepository(doer, owner *User, opts MigrateRepoOptions) (*Repository,
 	migrateTimeout := time.Duration(conf.Git.Timeout.Migrate) * time.Second
 
 	mirrorClone := func(url, dst string) error {
-		ctx, cancel := context.WithTimeout(context.TODO(), migrateTimeout)
+		ctx, cancel := git.WithTimeout(context.TODO(), migrateTimeout)
 		defer cancel()
 		return git.Clone(ctx, url, dst, git.CloneOptions{
 			Mirror: true,
@@ -2089,7 +2089,7 @@ func GitFsck() {
 			repoPath := repo.RepoPath()
 			gitRepo, err := git.Open(repoPath)
 			if err == nil {
-				ctx, cancel := context.WithTimeout(context.TODO(), conf.Cron.RepoHealthCheck.Timeout)
+				ctx, cancel := git.WithTimeout(context.TODO(), conf.Cron.RepoHealthCheck.Timeout)
 				err = gitRepo.Fsck(ctx, git.FsckOptions{
 					Args: conf.Cron.RepoHealthCheck.Args,
 				})
@@ -2124,7 +2124,7 @@ func GitGcRepos() error {
 				return errors.Newf("open repository: %v", err)
 			}
 
-			ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(conf.Git.Timeout.GC)*time.Second)
+			ctx, cancel := git.WithTimeout(context.TODO(), time.Duration(conf.Git.Timeout.GC)*time.Second)
 			defer cancel()
 			return gitRepo.GC(ctx, git.GCOptions{Args: conf.Git.GCArgs})
 		})

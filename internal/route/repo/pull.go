@@ -1,7 +1,6 @@
 package repo
 
 import (
-	gocontext "context"
 	"net/http"
 	"path"
 	"strconv"
@@ -356,7 +355,7 @@ func ViewPullFiles(c *context.Context) {
 		gitRepo = headGitRepo
 	}
 
-	ctx, cancel := gocontext.WithTimeout(c.Req.Context(), time.Duration(conf.Git.Timeout.Diff)*time.Second)
+	ctx, cancel := git.WithTimeout(c.Req.Context(), time.Duration(conf.Git.Timeout.Diff)*time.Second)
 	defer cancel()
 	diff, err := diffGitRepo.Diff(ctx,
 		endCommitID, conf.Git.MaxDiffFiles, conf.Git.MaxDiffLines, conf.Git.MaxDiffLineChars,
@@ -591,7 +590,7 @@ func PrepareCompareDiff(
 		return true
 	}
 
-	ctx, cancel := gocontext.WithTimeout(c.Req.Context(), time.Duration(conf.Git.Timeout.Diff)*time.Second)
+	ctx, cancel := git.WithTimeout(c.Req.Context(), time.Duration(conf.Git.Timeout.Diff)*time.Second)
 	defer cancel()
 	diff, err := headGitRepo.Diff(ctx,
 		headCommitID, conf.Git.MaxDiffFiles, conf.Git.MaxDiffLines, conf.Git.MaxDiffLineChars,

@@ -261,7 +261,7 @@ func mirrorRemoteUpdate(timeout time.Duration, repoPath string, prune bool) (str
 		return "", errors.Wrap(err, "open repository")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := git.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	return gitRepo.RemoteUpdate(ctx, git.RemoteUpdateOptions{
 		Prune: prune,
