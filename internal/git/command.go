@@ -17,18 +17,31 @@ import (
 // applied when the context does not already have a deadline.
 const defaultTimeout = time.Minute
 
+// waitDelay bounds how long waiting for a command takes after it was killed or
+// exited, e.g., when a process it started still holds its output open.
+const waitDelay = time.Minute
+
 // WithTimeout returns a copy of ctx that times out after the given duration. A
-// timeout of zero returns ctx unchanged, so commands run with the default
-// timeout, and a negative timeout means no timeout.
+// timeout of zero or less returns ctx unchanged, so commands run with the
+// default timeout.
 func WithTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
-	switch {
-	case timeout == 0:
+	if timeout <= 0 {
 		return ctx, func() {}
-	case timeout < 0:
-		// Any deadline keeps the default timeout from being applied.
-		return context.WithDeadline(ctx, time.Now().AddDate(100, 0, 0))
 	}
 	return context.WithTimeout(ctx, timeout)
+}
+
+// newCommand returns a git command that is killed along with every process it
+// started when ctx is done.
+func newCommand(ctx context.Context, dir string, args []string, envs []string) *osexec.Cmd {
+	c := osexec.CommandContext(ctx, "git", args...)
+	c.Dir = dir
+	if len(envs) > 0 {
+		c.Env = append(os.Environ(), envs...)
+	}
+	c.WaitDelay = waitDelay
+	killProcessGroup(c)
+	return c
 }
 
 // exitError is returned when Git exits with a non-zero status. Its message
@@ -61,11 +74,7 @@ func run(ctx context.Context, dir string, args []string, envs []string, stdout i
 	}
 
 	stderr := new(bytes.Buffer)
-	c := osexec.CommandContext(ctx, "git", args...)
-	c.Dir = dir
-	if len(envs) > 0 {
-		c.Env = append(os.Environ(), envs...)
-	}
+	c := newCommand(ctx, dir, args, envs)
 	c.Stdout = stdout
 	c.Stderr = stderr
 	err := c.Run()
