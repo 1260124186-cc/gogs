@@ -236,33 +236,6 @@ func TestRepository_Reset(t *testing.T) {
 	}
 }
 
-func TestRepository_Move(t *testing.T) {
-	ctx := context.Background()
-	r, cleanup, err := setupTempRepo()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cleanup()
-
-	tests := []struct {
-		src string
-		dst string
-	}{
-		{
-			src: "run.sh",
-			dst: "runme.sh",
-		},
-	}
-	for _, test := range tests {
-		t.Run("", func(t *testing.T) {
-			// Make sure it does not blow up
-			if err := r.Move(ctx, test.src, test.dst); err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-}
-
 func TestRepository_Add(t *testing.T) {
 	ctx := context.Background()
 	r, cleanup, err := setupTempRepo()
@@ -419,64 +392,6 @@ func commitFile(t *testing.T, r *Repository, name, content string) {
 	require.NoError(t, r.Commit(ctx, sig, "Update "+name))
 }
 
-func TestRepository_Merge(t *testing.T) {
-	ctx := context.Background()
-	r, cleanup, err := setupTempRepo()
-	require.NoError(t, err)
-	defer cleanup()
-
-	require.NoError(t, r.Checkout(ctx, "feature", CheckoutOptions{BaseBranch: "master"}))
-	commitFile(t, r, "FEATURE", "feature")
-	featureID, err := r.BranchCommitID(ctx, "feature")
-	require.NoError(t, err)
-	require.NoError(t, r.Checkout(ctx, "master"))
-	masterID, err := r.BranchCommitID(ctx, "master")
-	require.NoError(t, err)
-
-	t.Run("no fast-forward without commit", func(t *testing.T) {
-		err := r.Merge(ctx, "feature", MergeOptions{NoFastForward: true, NoCommit: true})
-		require.NoError(t, err)
-
-		gotID, err := r.BranchCommitID(ctx, "master")
-		require.NoError(t, err)
-		assert.Equal(t, masterID, gotID)
-		assert.FileExists(t, filepath.Join(r.Path(), ".git", "MERGE_HEAD"))
-
-		require.NoError(t, r.Reset(ctx, masterID, ResetOptions{Hard: true}))
-	})
-
-	t.Run("fast-forward", func(t *testing.T) {
-		require.NoError(t, r.Merge(ctx, "feature"))
-
-		gotID, err := r.BranchCommitID(ctx, "master")
-		require.NoError(t, err)
-		assert.Equal(t, featureID, gotID)
-	})
-}
-
-func TestRepository_Rebase(t *testing.T) {
-	ctx := context.Background()
-	r, cleanup, err := setupTempRepo()
-	require.NoError(t, err)
-	defer cleanup()
-
-	require.NoError(t, r.Checkout(ctx, "feature", CheckoutOptions{BaseBranch: "master"}))
-	commitFile(t, r, "FEATURE", "feature")
-	require.NoError(t, r.Checkout(ctx, "master"))
-	commitFile(t, r, "MASTER", "master")
-	masterID, err := r.BranchCommitID(ctx, "master")
-	require.NoError(t, err)
-
-	require.NoError(t, r.Rebase(ctx, "master", "feature"))
-
-	head, err := r.CatFileCommit(ctx, "HEAD")
-	require.NoError(t, err)
-	assert.Equal(t, "Update FEATURE\n", head.Message)
-	parentID, err := head.ParentID(0)
-	require.NoError(t, err)
-	assert.Equal(t, masterID, parentID.String())
-}
-
 func TestRepository_ApplyCheck(t *testing.T) {
 	ctx := context.Background()
 	r, cleanup, err := setupTempRepo()
@@ -498,6 +413,7 @@ func TestRepository_ApplyCheck(t *testing.T) {
 	// The context lines of the patch now only differ in whitespace.
 	require.NoError(t, r.Reset(ctx, baseID, ResetOptions{Hard: true}))
 	require.NoError(t, os.WriteFile(filepath.Join(r.Path(), "a.txt"), []byte("a  b\ntwo\nc  d\n"), 0600))
+	require.NoError(t, r.Add(ctx, AddOptions{All: true}))
 
 	assert.Error(t, r.ApplyCheck(ctx, patchPath))
 	assert.NoError(t, r.ApplyCheck(ctx, patchPath, ApplyCheckOptions{IgnoreWhitespace: true}))

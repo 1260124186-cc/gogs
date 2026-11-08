@@ -646,10 +646,6 @@ func (r *Repository) NextIssueIndex() int64 {
 	return int64(r.NumIssues+r.NumPulls) + 1
 }
 
-func (r *Repository) LocalCopyPath() string {
-	return filepath.Join(conf.Server.AppDataPath, "tmp", "local-r", strconv.FormatInt(r.ID, 10))
-}
-
 // UpdateLocalCopy fetches latest changes of given branch from repoPath to localPath.
 // It creates a new clone if local copy does not exist, but does not checks out to a
 // specific branch if the local copy belongs to a wiki.
@@ -698,11 +694,6 @@ func UpdateLocalCopyBranch(repoPath, localPath, branch string, isWiki bool) (err
 		return errors.Newf("reset [revision: %s]: %v", rev, err)
 	}
 	return nil
-}
-
-// UpdateLocalCopyBranch makes sure local copy of repository in given branch is up-to-date.
-func (r *Repository) UpdateLocalCopyBranch(branch string) error {
-	return UpdateLocalCopyBranch(r.RepoPath(), r.LocalCopyPath(), branch, false)
 }
 
 // PatchPath returns corresponding patch file path of repository by given issue ID.
@@ -2650,29 +2641,18 @@ func (r *Repository) GetForks() ([]*Repository, error) {
 //
 
 func (r *Repository) CreateNewBranch(oldBranch, newBranch string) (err error) {
-	repoWorkingPool.CheckIn(strconv.FormatInt(r.ID, 10))
-	defer repoWorkingPool.CheckOut(strconv.FormatInt(r.ID, 10))
-
-	localPath := r.LocalCopyPath()
-
-	if err = discardLocalRepoBranchChanges(localPath, oldBranch); err != nil {
-		return errors.Newf("discard changes in local copy [path: %s, branch: %s]: %v", localPath, oldBranch, err)
-	} else if err = r.UpdateLocalCopyBranch(oldBranch); err != nil {
-		return errors.Newf("update branch for local copy [path: %s, branch: %s]: %v", localPath, oldBranch, err)
-	}
-
-	if err = r.CheckoutNewBranch(oldBranch, newBranch); err != nil {
-		return errors.Newf("create new branch [base: %s, new: %s]: %v", oldBranch, newBranch, err)
-	}
-
-	localGitRepo, err := git.Open(localPath)
+	ctx := context.TODO()
+	gitRepo, err := git.Open(r.RepoPath())
 	if err != nil {
-		return errors.Newf("open local copy [path: %s]: %v", localPath, err)
+		return errors.Newf("open repository: %v", err)
 	}
-	if err = localGitRepo.Push(context.TODO(), "origin", newBranch); err != nil {
+	commitID, err := gitRepo.BranchCommitID(ctx, oldBranch)
+	if err != nil {
+		return errors.Newf("get commit of branch %q: %v", oldBranch, err)
+	}
+	if err = gitRepo.Push(ctx, r.RepoPath(), commitID+":"+git.RefsHeads+newBranch); err != nil {
 		return errors.Newf("push [branch: %s]: %v", newBranch, err)
 	}
-
 	return nil
 }
 

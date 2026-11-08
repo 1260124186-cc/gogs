@@ -14,6 +14,7 @@ var (
 	ErrExecTimeout       = errors.New("execution was timed out")
 	ErrNoMergeBase       = errors.New("no merge based was found")
 	ErrNotBlob           = errors.New("the entry is not a blob")
+	ErrMergeConflict     = errors.New("merge has conflicts")
 )
 
 var _ errx.NotFound = (*Error)(nil)
