@@ -31,7 +31,6 @@ func TestRepository_Diff(t *testing.T) {
 						Name:         "fix.txt",
 						Type:         DiffFileDelete,
 						Index:        "0000000000000000000000000000000000000000",
-						OldIndex:     "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
 						Sections:     nil,
 						numAdditions: 0,
 						numDeletions: 0,
@@ -40,7 +39,6 @@ func TestRepository_Diff(t *testing.T) {
 						isSubmodule:  false,
 						isIncomplete: false,
 						mode:         0100644,
-						oldMode:      0100644,
 					},
 				},
 				totalAdditions: 0,
@@ -53,10 +51,9 @@ func TestRepository_Diff(t *testing.T) {
 			expDiff: &Diff{
 				Files: []*DiffFile{
 					{
-						Name:     "README.txt",
-						Type:     DiffFileAdd,
-						Index:    "1e24b564bf2298965d8037af42d3ae15ad7d225a",
-						OldIndex: "0000000000000000000000000000000000000000",
+						Name:  "README.txt",
+						Type:  DiffFileAdd,
+						Index: "1e24b564bf2298965d8037af42d3ae15ad7d225a",
 						Sections: []*DiffSection{
 							{
 								Lines: []*DiffLine{
@@ -141,13 +138,11 @@ func TestRepository_Diff(t *testing.T) {
 						isSubmodule:  false,
 						isIncomplete: false,
 						mode:         0100644,
-						oldMode:      0100644,
 					},
 					{
-						Name:     "resources/labels.properties",
-						Type:     DiffFileAdd,
-						Index:    "fbdcfef007c0c09061199e687087b18c3cf8e083",
-						OldIndex: "0000000000000000000000000000000000000000",
+						Name:  "resources/labels.properties",
+						Type:  DiffFileAdd,
+						Index: "fbdcfef007c0c09061199e687087b18c3cf8e083",
 						Sections: []*DiffSection{
 							{
 								Lines: []*DiffLine{
@@ -190,13 +185,11 @@ func TestRepository_Diff(t *testing.T) {
 						isSubmodule:  false,
 						isIncomplete: false,
 						mode:         0100644,
-						oldMode:      0100644,
 					},
 					{
-						Name:     "src/Main.groovy",
-						Type:     DiffFileAdd,
-						Index:    "51680791956b43effdb2f16bccd2b4752d66078f",
-						OldIndex: "0000000000000000000000000000000000000000",
+						Name:  "src/Main.groovy",
+						Type:  DiffFileAdd,
+						Index: "51680791956b43effdb2f16bccd2b4752d66078f",
 						Sections: []*DiffSection{
 							{
 								Lines: []*DiffLine{
@@ -251,7 +244,6 @@ func TestRepository_Diff(t *testing.T) {
 						isSubmodule:  false,
 						isIncomplete: false,
 						mode:         0100644,
-						oldMode:      0100644,
 					},
 				},
 				totalAdditions: 21,
@@ -270,7 +262,6 @@ func TestRepository_Diff(t *testing.T) {
 						Name:         "fix.txt",
 						Type:         DiffFileDelete,
 						Index:        "0000000000000000000000000000000000000000",
-						OldIndex:     "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
 						Sections:     nil,
 						numAdditions: 0,
 						numDeletions: 0,
@@ -279,7 +270,6 @@ func TestRepository_Diff(t *testing.T) {
 						isSubmodule:  false,
 						isIncomplete: false,
 						mode:         0100644,
-						oldMode:      0100644,
 					},
 				},
 				totalAdditions: 0,

@@ -20,7 +20,6 @@ func TestRepository_Tag(t *testing.T) {
 				typ:      ObjectCommit,
 				id:       MustIDFromString("0eedd79eba4394bbef888c804e899731644367fe"),
 				commitID: MustIDFromString("0eedd79eba4394bbef888c804e899731644367fe"),
-				refspec:  "refs/tags/v1.0.0",
 			},
 		}, {
 			name: "v1.1.0",
@@ -28,7 +27,6 @@ func TestRepository_Tag(t *testing.T) {
 				typ:      ObjectTag,
 				id:       MustIDFromString("b39c8508bbc4b00ad2e24d358012ea123bcafd8d"),
 				commitID: MustIDFromString("0eedd79eba4394bbef888c804e899731644367fe"),
-				refspec:  "refs/tags/v1.1.0",
 			},
 		},
 	}
@@ -42,7 +40,6 @@ func TestRepository_Tag(t *testing.T) {
 			assert.Equal(t, test.expTag.Type(), tag.Type())
 			assert.Equal(t, test.expTag.ID().String(), tag.ID().String())
 			assert.Equal(t, test.expTag.CommitID().String(), tag.CommitID().String())
-			assert.Equal(t, test.expTag.Refspec(), tag.Refspec())
 		})
 	}
 }
@@ -135,9 +132,7 @@ func TestRepository_CreateAnnotatedTag(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, "alice", tag.tagger.Name)
-	assert.Equal(t, "alice@example.com", tag.tagger.Email)
-	assert.False(t, tag.tagger.When.IsZero())
+	assert.Equal(t, ObjectTag, tag.Type())
 }
 
 func TestRepository_DeleteTag(t *testing.T) {

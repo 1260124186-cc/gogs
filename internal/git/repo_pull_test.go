@@ -85,9 +85,9 @@ func TestRepository_PullRequestMeta(t *testing.T) {
 		assert.Equal(t, "head 1", meta.Commits[0].Summary())
 		assert.Equal(t, 3, meta.NumFiles)
 
-		remotes, err := head.Remotes(ctx)
+		remotes, err := exec(ctx, head.Path(), []string{"remote"}, nil)
 		require.NoError(t, err)
-		assert.Equal(t, []string{"origin"}, remotes, "temporary remote should be removed")
+		assert.Equal(t, "origin\n", string(remotes), "temporary remote should be removed")
 	})
 
 	t.Run("same repository", func(t *testing.T) {

@@ -173,47 +173,6 @@ func (r *Repository) Fetch(ctx context.Context, opts ...FetchOptions) error {
 	return err
 }
 
-// PullOptions contains optional arguments for pulling repository updates.
-//
-// Docs: https://git-scm.com/docs/git-pull
-type PullOptions struct {
-	// Indicates whether to rebased during pulling.
-	Rebase bool
-	// Indicates whether to pull from all remotes.
-	All bool
-	// The remote to pull updates from when All=false.
-	Remote string
-	// The branch to pull updates from when All=false and Remote is supplied.
-	Branch string
-	CommandOptions
-}
-
-// Pull pulls updates for the repository.
-func (r *Repository) Pull(ctx context.Context, opts ...PullOptions) error {
-	var opt PullOptions
-	if len(opts) > 0 {
-		opt = opts[0]
-	}
-
-	args := []string{"pull"}
-	if opt.Rebase {
-		args = append(args, "--rebase")
-	}
-	if opt.All {
-		args = append(args, "--all")
-	}
-	args = append(args, "--end-of-options")
-	if !opt.All && opt.Remote != "" {
-		args = append(args, opt.Remote)
-		if opt.Branch != "" {
-			args = append(args, opt.Branch)
-		}
-	}
-
-	_, err := exec(ctx, r.path, args, opt.Envs)
-	return err
-}
-
 // PushOptions contains optional arguments for pushing repository changes.
 //
 // Docs: https://git-scm.com/docs/git-push
