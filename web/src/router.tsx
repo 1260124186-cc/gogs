@@ -1,6 +1,14 @@
 import { WorkerPoolContextProvider } from "@pierre/diffs/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Outlet, RouterProvider, createRootRouteWithContext, createRoute, createRouter } from "@tanstack/react-router";
+import {
+  Outlet,
+  RouterProvider,
+  createRootRouteWithContext,
+  createRoute,
+  createRouter,
+  parseSearchWith,
+  stringifySearchWith,
+} from "@tanstack/react-router";
 import { Toaster } from "sonner";
 
 import { Footer } from "@/components/Footer";
@@ -11,6 +19,7 @@ import type { UserInfo } from "@/lib/user-info";
 import { Landing } from "@/pages/Landing";
 import { NotFound } from "@/pages/NotFound";
 import { ServerError } from "@/pages/ServerError";
+import { createExploreRoutes } from "@/routes/explore";
 import { createRepoRoutes } from "@/routes/repo";
 import { createUserRoutes } from "@/routes/user";
 
@@ -40,7 +49,23 @@ const landingRoute = createRoute({
   component: Landing,
 });
 
-const routeTree = rootRoute.addChildren([landingRoute, ...createUserRoutes(rootRoute), ...createRepoRoutes(rootRoute)]);
+const routeTree = rootRoute.addChildren([
+  landingRoute,
+  ...createUserRoutes(rootRoute),
+  ...createExploreRoutes(rootRoute),
+  ...createRepoRoutes(rootRoute),
+]);
+
+// Search values become numbers, booleans, or null only when that keeps their
+// exact text. Everything else, including `?q=1.0`, `?q="foo"` and `?q=[1]`,
+// stays the string from the URL. Throwing tells the router to keep the raw
+// string. Strings are written to the URL as they are.
+function parseSearchValue(value: string): unknown {
+  const parsed: unknown = JSON.parse(value);
+  const primitive = parsed === null || typeof parsed === "number" || typeof parsed === "boolean";
+  if (!primitive || JSON.stringify(parsed) !== value) throw new Error("search value is kept as text");
+  return parsed;
+}
 
 function makeRouter(context: RouterContext) {
   return createRouter({
@@ -48,6 +73,8 @@ function makeRouter(context: RouterContext) {
     basepath: webContext.subURL || "/",
     defaultNotFoundComponent: NotFound,
     defaultErrorComponent: ServerError,
+    parseSearch: parseSearchWith(parseSearchValue),
+    stringifySearch: stringifySearchWith(JSON.stringify),
     context,
   });
 }
