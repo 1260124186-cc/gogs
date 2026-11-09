@@ -84,7 +84,7 @@ func Run(configPath string, portOverride int) error {
 			})
 			m.Get("/^:type(repos|users|organizations)$", func(c *context.Context) { c.ServeWeb() })
 		}, ignSignIn)
-		m.Get("/^:type(issues|pulls)$", reqSignIn, user.Issues)
+		m.Get("/^:type(issues|pulls)$", reqSignIn, func(c *context.Context) { c.ServeWeb() })
 
 		// ***** START: User *****
 		m.Group("/user/settings", func() {
@@ -287,7 +287,7 @@ func Run(configPath string, portOverride int) error {
 
 			m.Group("/:org", func() {
 				m.Get("/dashboard", func(c *context.Context) { c.ServeWeb() })
-				m.Get("/^:type(issues|pulls)$", user.Issues)
+				m.Get("/^:type(issues|pulls)$", func(c *context.Context) { c.ServeWeb() })
 				m.Get("/members", org.Members)
 				m.Post("/members/action/:action", org.MembersAction)
 
