@@ -286,7 +286,7 @@ func Run(configPath string, portOverride int) error {
 			})
 
 			m.Group("/:org", func() {
-				m.Get("/dashboard", user.Dashboard)
+				m.Get("/dashboard", func(c *context.Context) { c.ServeWeb() })
 				m.Get("/^:type(issues|pulls)$", user.Issues)
 				m.Get("/members", org.Members)
 				m.Post("/members/action/:action", org.MembersAction)

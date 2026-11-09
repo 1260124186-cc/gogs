@@ -4,7 +4,6 @@ import {
   Outlet,
   RouterProvider,
   createRootRouteWithContext,
-  createRoute,
   createRouter,
   parseSearchWith,
   stringifySearchWith,
@@ -16,9 +15,9 @@ import { Navbar } from "@/components/Navbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { webContext } from "@/lib/context";
 import type { UserInfo } from "@/lib/user-info";
-import { Landing } from "@/pages/Landing";
 import { NotFound } from "@/pages/NotFound";
 import { ServerError } from "@/pages/ServerError";
+import { createDashboardRoutes } from "@/routes/dashboard";
 import { createExploreRoutes } from "@/routes/explore";
 import { createProfileRoutes } from "@/routes/profile";
 import { createRepoRoutes } from "@/routes/repo";
@@ -44,14 +43,8 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
   notFoundComponent: NotFound,
 });
 
-const landingRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/",
-  component: Landing,
-});
-
 const routeTree = rootRoute.addChildren([
-  landingRoute,
+  ...createDashboardRoutes(rootRoute),
   ...createUserRoutes(rootRoute),
   ...createExploreRoutes(rootRoute),
   ...createRepoRoutes(rootRoute),

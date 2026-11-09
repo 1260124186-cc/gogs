@@ -8,19 +8,13 @@ import (
 	"gogs.io/gogs/internal/conf"
 	"gogs.io/gogs/internal/context"
 	"gogs.io/gogs/internal/database"
-	"gogs.io/gogs/internal/route/user"
 )
 
 func Home(c *context.Context) {
-	if c.IsLogged {
-		if !c.User.IsActive && conf.Auth.RequireEmailConfirmation {
-			c.RedirectSubpath("/user/activate")
-		} else {
-			user.Dashboard(c)
-		}
+	if c.IsLogged && !c.User.IsActive && conf.Auth.RequireEmailConfirmation {
+		c.RedirectSubpath("/user/activate")
 		return
 	}
-
 	c.ServeWeb()
 }
 
