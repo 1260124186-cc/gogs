@@ -20,6 +20,7 @@ import { Landing } from "@/pages/Landing";
 import { NotFound } from "@/pages/NotFound";
 import { ServerError } from "@/pages/ServerError";
 import { createExploreRoutes } from "@/routes/explore";
+import { createProfileRoutes } from "@/routes/profile";
 import { createRepoRoutes } from "@/routes/repo";
 import { createUserRoutes } from "@/routes/user";
 
@@ -54,6 +55,7 @@ const routeTree = rootRoute.addChildren([
   ...createUserRoutes(rootRoute),
   ...createExploreRoutes(rootRoute),
   ...createRepoRoutes(rootRoute),
+  ...createProfileRoutes(rootRoute),
 ]);
 
 // Search values become numbers, booleans, or null only when that keeps their
