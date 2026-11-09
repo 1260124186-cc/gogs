@@ -81,6 +81,7 @@
   "repo.issues.next": "次ページ",
   "repo.unlisted": "Unlisted",
   "repo.stargazers": "スターゲイザー",
+  "repo.watchers": "ウォッチャー",
   "repo.forks": "フォーク",
   "status.page_not_found": "ページが見つかりません",
   "status.internal_server_error": "サーバ内部エラー",

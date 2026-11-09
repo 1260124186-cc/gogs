@@ -81,6 +81,7 @@
   "repo.issues.next": "Nākamā",
   "repo.unlisted": "Unlisted",
   "repo.stargazers": "Zvaigžņdevēji",
+  "repo.watchers": "Novērotāji",
   "repo.forks": "Atdalītie repozitoriji",
   "status.page_not_found": "Page Not Found",
   "status.internal_server_error": "Internal Server Error",

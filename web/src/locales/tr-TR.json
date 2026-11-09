@@ -81,6 +81,7 @@
   "repo.issues.next": "Sonraki",
   "repo.unlisted": "Unlisted",
   "repo.stargazers": "Yıldızlayanlar",
+  "repo.watchers": "İzleyenler",
   "repo.forks": "Çatallamalar",
   "status.page_not_found": "Sayfa Bulunamadı",
   "status.internal_server_error": "İç Sunucu Hatası.",

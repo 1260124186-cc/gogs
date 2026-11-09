@@ -81,6 +81,7 @@
   "repo.issues.next": "Próximo",
   "repo.unlisted": "Unlisted",
   "repo.stargazers": "Usuários que estrelaram",
+  "repo.watchers": "Observadores",
   "repo.forks": "Forks",
   "status.page_not_found": "Página Não Encontrada",
   "status.internal_server_error": "Erro interno do servidor",

@@ -81,6 +81,7 @@
   "repo.issues.next": "Volgende",
   "repo.unlisted": "Unlisted",
   "repo.stargazers": "Stargazers",
+  "repo.watchers": "Volgers",
   "repo.forks": "Forks",
   "status.page_not_found": "Pagina niet gevonden",
   "status.internal_server_error": "Interne Server Fout",

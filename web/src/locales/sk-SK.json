@@ -81,6 +81,7 @@
   "repo.issues.next": "Ďalšie",
   "repo.unlisted": "Unlisted",
   "repo.stargazers": "Sledujúci",
+  "repo.watchers": "Pozorovatelia",
   "repo.forks": "Forky",
   "status.page_not_found": "Page Not Found",
   "status.internal_server_error": "Internal Server Error",

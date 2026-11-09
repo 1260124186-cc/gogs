@@ -81,6 +81,7 @@
   "repo.issues.next": "Следваща",
   "repo.unlisted": "Unlisted",
   "repo.stargazers": "Харесващи",
+  "repo.watchers": "Наблюдаващи",
   "repo.forks": "Разклонения",
   "status.page_not_found": "Страницата не е намерена",
   "status.internal_server_error": "Вътрешна грешка в сървър",

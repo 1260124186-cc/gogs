@@ -81,6 +81,7 @@
   "repo.issues.next": "Következő",
   "repo.unlisted": "Unlisted",
   "repo.stargazers": "Csillagvizsgálók",
+  "repo.watchers": "Figyelők",
   "repo.forks": "Másolások",
   "status.page_not_found": "Az oldal nem található",
   "status.internal_server_error": "Belső kiszolgálóhiba",

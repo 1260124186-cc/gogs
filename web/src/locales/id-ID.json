@@ -81,6 +81,7 @@
   "repo.issues.next": "Selanjutnya",
   "repo.unlisted": "Tidak terdaftar",
   "repo.stargazers": "Stargazers",
+  "repo.watchers": "Watchers",
   "repo.forks": "Forks",
   "status.page_not_found": "Halaman tidak ditemukan",
   "status.internal_server_error": "Kesalahan Server Internal",

@@ -81,6 +81,7 @@
   "repo.issues.next": "下一页",
   "repo.unlisted": "列表隐藏",
   "repo.stargazers": "称赞者",
+  "repo.watchers": "关注者",
   "repo.forks": "派生仓库",
   "status.page_not_found": "页面未找到",
   "status.internal_server_error": "内部服务器错误",

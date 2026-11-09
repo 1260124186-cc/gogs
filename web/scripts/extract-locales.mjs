@@ -116,6 +116,7 @@ const KEYS = [
   "repo.issues.next",
   "repo.unlisted",
   "repo.stargazers",
+  "repo.watchers",
   "repo.forks",
   "status.page_not_found",
   "status.internal_server_error",

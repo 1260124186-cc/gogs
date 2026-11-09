@@ -81,6 +81,7 @@
   "repo.issues.next": "Seuraava",
   "repo.unlisted": "Listaamaton",
   "repo.stargazers": "Tähtiharrastajat",
+  "repo.watchers": "Tarkkailijat",
   "repo.forks": "Haarautukset",
   "status.page_not_found": "Sivua ei löydy",
   "status.internal_server_error": "Sisäinen palvelinvirhe",

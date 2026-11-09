@@ -81,6 +81,7 @@
   "repo.issues.next": "Наступний",
   "repo.unlisted": "Поза списком",
   "repo.stargazers": "Шанувальники",
+  "repo.watchers": "Спостерігачі",
   "repo.forks": "Відгалуження",
   "status.page_not_found": "Сторінку не знайдено",
   "status.internal_server_error": "Внутрішня помилка серверу",

@@ -81,6 +81,7 @@
   "repo.issues.next": "Pagina successiva",
   "repo.unlisted": "Unlisted",
   "repo.stargazers": "Fan",
+  "repo.watchers": "Osservatori",
   "repo.forks": "Fork",
   "status.page_not_found": "Pagina Non Trovata",
   "status.internal_server_error": "Errore Interno del Server",

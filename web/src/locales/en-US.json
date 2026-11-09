@@ -102,6 +102,7 @@
   "repo.issues.next": "Next",
   "repo.unlisted": "Unlisted",
   "repo.stargazers": "Stargazers",
+  "repo.watchers": "Watchers",
   "repo.forks": "Forks",
   "status.page_not_found": "Page not found",
   "status.internal_server_error": "Internal server error",

@@ -81,6 +81,7 @@
   "repo.issues.next": "下一頁",
   "repo.unlisted": "Unlisted",
   "repo.stargazers": "稱讚者",
+  "repo.watchers": "關注者",
   "repo.forks": "派生倉庫",
   "status.page_not_found": "找不到頁面",
   "status.internal_server_error": "內部伺服器錯誤",

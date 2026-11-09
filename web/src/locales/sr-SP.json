@@ -81,6 +81,7 @@
   "repo.issues.next": "Следеће",
   "repo.unlisted": "Unlisted",
   "repo.stargazers": "Пратиоци",
+  "repo.watchers": "Посматрачи",
   "repo.forks": "Огранци",
   "status.page_not_found": "Page Not Found",
   "status.internal_server_error": "Internal Server Error",

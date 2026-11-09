@@ -81,6 +81,7 @@
   "repo.issues.next": "Urmatorul",
   "repo.unlisted": "Nelistat",
   "repo.stargazers": "Privitorii de stele",
+  "repo.watchers": "Observatori",
   "repo.forks": "Bifurcații",
   "status.page_not_found": "Pagina nu a fost găsită",
   "status.internal_server_error": "Eroare internă de server",

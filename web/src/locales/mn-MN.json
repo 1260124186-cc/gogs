@@ -81,6 +81,7 @@
   "repo.issues.next": "Дараах",
   "repo.unlisted": "Unlisted",
   "repo.stargazers": "Онцлох жагсаалтад нэмсэн хэрэглэгчид",
+  "repo.watchers": "Үзэх жагсаалтад нэмсэн хэрэглэгчид",
   "repo.forks": "Салаанууд",
   "status.page_not_found": "Хуудас олдсонгүй",
   "status.internal_server_error": "Сервертэй холбогдоход алдаа гарлаа.",
